@@ -19,7 +19,7 @@ services:
       - SAI_THROUGHPUT=${SAI_THROUGHPUT:-1000}
       - SAI_THREADS=${SAI_THREADS:-auto}
       - SAI_CYCLES=${SAI_CYCLES:-3000000000}
-      - METRICS_ENDPOINT=${METRICS_ENDPOINT:-http://victoriametrics:8428}
+      - METRICS_ENDPOINT=${METRICS_ENDPOINT:-http://demo-victoriametrics:8428}
     command: >
       bash -c "
         echo 'Starting SAI benchmark run...' &&
@@ -46,7 +46,7 @@ services:
       - nosqlbench-network
     depends_on:
       - cassandra
-      - victoriametrics
+      - demo-victoriametrics
     restart: "no"
     profiles:
       - run
@@ -66,7 +66,7 @@ services:
       - LWT_THROUGHPUT=${LWT_THROUGHPUT:-500}
       - LWT_THREADS=${LWT_THREADS:-auto}
       - LWT_CYCLES=${LWT_CYCLES:-3000000000}
-      - METRICS_ENDPOINT=${METRICS_ENDPOINT:-http://victoriametrics:8428}
+      - METRICS_ENDPOINT=${METRICS_ENDPOINT:-http://demo-victoriametrics:8428}
     command: >
       bash -c "
         echo 'Starting LWT benchmark run...' &&
@@ -95,7 +95,7 @@ services:
       - nosqlbench-network
     depends_on:
       - cassandra
-      - victoriametrics
+      - demo-victoriametrics
     restart: "no"
     profiles:
       - run
@@ -114,7 +114,7 @@ services:
       - OPENSEARCH_BASIC_THROUGHPUT=${OPENSEARCH_BASIC_THROUGHPUT:-2000}
       - OPENSEARCH_BASIC_THREADS=${OPENSEARCH_BASIC_THREADS:-5}
       - OPENSEARCH_BASIC_CYCLES=${OPENSEARCH_BASIC_CYCLES:-3000000000}
-      - METRICS_ENDPOINT=${METRICS_ENDPOINT:-http://victoriametrics:8428}
+      - METRICS_ENDPOINT=${METRICS_ENDPOINT:-http://demo-victoriametrics:8428}
     command: >
       bash -c "
         echo 'Starting OpenSearch Basic benchmark run...' &&
@@ -137,7 +137,7 @@ services:
       - nosqlbench-network
     depends_on:
       - opensearch
-      - victoriametrics
+      - demo-victoriametrics
     restart: "no"
     profiles:
       - run
@@ -156,7 +156,7 @@ services:
       - OPENSEARCH_VECTOR_THROUGHPUT=${OPENSEARCH_VECTOR_THROUGHPUT:-1000}
       - OPENSEARCH_VECTOR_THREADS=${OPENSEARCH_VECTOR_THREADS:-3}
       - OPENSEARCH_VECTOR_CYCLES=${OPENSEARCH_VECTOR_CYCLES:-3000000000}
-      - METRICS_ENDPOINT=${METRICS_ENDPOINT:-http://victoriametrics:8428}
+      - METRICS_ENDPOINT=${METRICS_ENDPOINT:-http://demo-victoriametrics:8428}
     command: >
       bash -c "
         echo 'Starting OpenSearch Vector benchmark run...' &&
@@ -198,7 +198,7 @@ services:
       - OPENSEARCH_BULK_THROUGHPUT=${OPENSEARCH_BULK_THROUGHPUT:-1500}
       - OPENSEARCH_BULK_THREADS=${OPENSEARCH_BULK_THREADS:-2}
       - OPENSEARCH_BULK_CYCLES=${OPENSEARCH_BULK_CYCLES:-3000000000}
-      - METRICS_ENDPOINT=${METRICS_ENDPOINT:-http://victoriametrics:8428}
+      - METRICS_ENDPOINT=${METRICS_ENDPOINT:-http://demo-victoriametrics:8428}
     command: >
       bash -c "
         echo 'Starting OpenSearch Bulk benchmark run...' &&
@@ -241,7 +241,7 @@ services:
       - PRESTO_ANALYTICS_THROUGHPUT=${PRESTO_ANALYTICS_THROUGHPUT:-100}
       - PRESTO_ANALYTICS_THREADS=${PRESTO_ANALYTICS_THREADS:-5}
       - PRESTO_ANALYTICS_CYCLES=${PRESTO_ANALYTICS_CYCLES:-3000000000}
-      - METRICS_ENDPOINT=${METRICS_ENDPOINT:-http://victoriametrics:8428}
+      - METRICS_ENDPOINT=${METRICS_ENDPOINT:-http://demo-victoriametrics:8428}
     command: >
       bash -c "
         echo 'Starting Presto Analytics benchmark run...' &&
@@ -283,7 +283,7 @@ services:
       - PRESTO_ECOMMERCE_THROUGHPUT=${PRESTO_ECOMMERCE_THROUGHPUT:-200}
       - PRESTO_ECOMMERCE_THREADS=${PRESTO_ECOMMERCE_THREADS:-3}
       - PRESTO_ECOMMERCE_CYCLES=${PRESTO_ECOMMERCE_CYCLES:-3000000000}
-      - METRICS_ENDPOINT=${METRICS_ENDPOINT:-http://victoriametrics:8428}
+      - METRICS_ENDPOINT=${METRICS_ENDPOINT:-http://demo-victoriametrics:8428}
     command: >
       bash -c "
         echo 'Starting Presto E-commerce benchmark run...' &&

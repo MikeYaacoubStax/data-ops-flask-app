@@ -20,8 +20,8 @@ class InfrastructureConfig:
     victoriametrics_port: int = 8428
     victoriametrics_influx_port: int = 8089
     victoriametrics_graphite_port: int = 2003
-    victoriametrics_endpoint: str = "http://localhost:8428"
-    victoriametrics_influx_endpoint: str = "http://localhost:8089"
+    victoriametrics_endpoint: str = "http://demo-victoriametrics:8428"
+    victoriametrics_influx_endpoint: str = "http://demo-victoriametrics:8089"
     # Removed separate Graphite service - using VictoriaMetrics Graphite interface
 
 @dataclass

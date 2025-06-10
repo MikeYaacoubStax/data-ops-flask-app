@@ -2,9 +2,9 @@ version: '3.8'
 
 services:
   # VictoriaMetrics - Time series database for NoSQLBench metrics (matching Flask app setup)
-  victoriametrics:
+  demo-victoriametrics:
     image: victoriametrics/victoria-metrics:latest
-    container_name: monitoring-victoriametrics
+    container_name: demo-victoriametrics
     ports:
       - "${VICTORIAMETRICS_PORT:-8428}:8428"
       - "${VICTORIAMETRICS_INFLUX_PORT:-8089}:8089"  # InfluxDB protocol
@@ -35,7 +35,7 @@ services:
   # Grafana - Visualization and dashboards (matching Flask app setup)
   grafana:
     image: grafana/grafana:latest
-    container_name: monitoring-grafana
+    container_name: demo-grafana
     ports:
       - "${GRAFANA_PORT:-3001}:3000"  # Changed to 3001 to match Flask app
     environment:
@@ -51,7 +51,7 @@ services:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
     depends_on:
-      victoriametrics:
+      demo-victoriametrics:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
@@ -66,7 +66,7 @@ services:
   # Prometheus Node Exporter for system metrics
   node-exporter:
     image: prom/node-exporter:latest
-    container_name: monitoring-node-exporter
+    container_name: demo-node-exporter
     ports:
       - "${NODE_EXPORTER_PORT:-9100}:9100"
     command:

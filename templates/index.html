@@ -6,51 +6,325 @@
     <title>NoSQLBench Demo Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <link href="/static/css/custom.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --success-color: #059669;
+            --warning-color: #d97706;
+            --danger-color: #dc2626;
+            --info-color: #0891b2;
+            --dark-color: #1f2937;
+            --light-color: #f8fafc;
+            --border-color: #e2e8f0;
+        }
+
+        body {
+            background-color: #f1f5f9;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, var(--dark-color) 0%, #374151 100%);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            transition: all 0.2s ease-in-out;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .card-header {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border-bottom: 1px solid var(--border-color);
+            border-radius: 12px 12px 0 0 !important;
+            padding: 1.25rem;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .status-running {
+            background: linear-gradient(135deg, var(--success-color) 0%, #10b981 100%);
+            box-shadow: 0 0 8px rgba(5, 150, 105, 0.4);
+        }
+        .status-stopped {
+            background: linear-gradient(135deg, var(--danger-color) 0%, #ef4444 100%);
+        }
+        .status-unknown {
+            background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%);
+        }
+
+        .btn {
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.2s ease-in-out;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #3b82f6 100%);
+            border: none;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--success-color) 0%, #10b981 100%);
+            border: none;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, var(--warning-color) 0%, #f59e0b 100%);
+            border: none;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger-color) 0%, #ef4444 100%);
+            border: none;
+        }
+
+        .btn-loading {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        .btn-loading::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            margin: auto;
+            border: 2px solid transparent;
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .form-control, .form-select {
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            transition: all 0.2s ease-in-out;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .badge {
+            border-radius: 6px;
+            font-weight: 500;
+        }
+
+        .benchmark-card {
+            margin-bottom: 1rem;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .benchmark-control-card {
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 0.5rem;
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            transition: all 0.3s ease;
+            min-width: 250px;
+        }
+
+        .benchmark-control-card:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+
+        .benchmark-control-card .workload-name {
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .benchmark-control-card .workload-status {
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+        }
+
+        .benchmark-control-card.disabled {
+            opacity: 0.6;
+            background: linear-gradient(135deg, #f1f3f4 0%, #e9ecef 100%);
+            border-color: #dee2e6;
+        }
+
+        .benchmark-control-card.disabled:hover {
+            transform: none;
+            box-shadow: none;
+            border-color: #dee2e6;
+        }
+
+        .runtime-display {
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-weight: 600;
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+
+        .log-output {
+            background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+            color: #f9fafb;
+            border: 1px solid #4b5563;
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-size: 0.875rem;
+            max-height: 300px;
+            overflow-y: auto;
+            line-height: 1.5;
+        }
+
+        .progress {
+            height: 8px;
+            border-radius: 4px;
+            background-color: #e2e8f0;
+        }
+
+        .progress-bar {
+            border-radius: 4px;
+            background: linear-gradient(90deg, var(--primary-color) 0%, #3b82f6 100%);
+        }
+
+        .workload-badge {
+            margin: 0.25rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 500;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .workload-badge:hover {
+            transform: scale(1.05);
+        }
+
+        .connection-status {
+            position: relative;
+        }
+
+        .connection-status::before {
+            content: '';
+            position: absolute;
+            left: -8px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: currentColor;
+            animation: pulse 2s infinite;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+    </style>
 </head>
 <body>
-    <div class="container-fluid">
-        <div class="row">
-            <div class="col-12">
-                <nav class="navbar navbar-dark bg-dark mb-4">
-                    <div class="container-fluid">
-                        <span class="navbar-brand mb-0 h1">
-                            <i class="fas fa-chart-line"></i> NoSQLBench Demo Dashboard
-                        </span>
-                        <div class="d-flex">
-                            <span class="badge bg-success me-2" id="status-indicator">
-                                <i class="fas fa-circle"></i> Ready
-                            </span>
-                        </div>
-                    </div>
-                </nav>
+    <nav class="navbar navbar-dark bg-dark">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">
+                <i class="fas fa-database"></i> NoSQLBench Demo Dashboard
+            </span>
+            <div class="d-flex">
+                <span class="navbar-text me-3">
+                    Status: <span id="connection-status" class="badge bg-secondary">Connecting...</span>
+                </span>
             </div>
         </div>
+    </nav>
 
-        <!-- Infrastructure Setup Section -->
+    <div class="container-fluid mt-4">
+        <!-- Infrastructure Section -->
         <div class="row mb-4">
             <div class="col-12">
                 <div class="card">
                     <div class="card-header">
-                        <h5><i class="fas fa-server"></i> Infrastructure Setup</h5>
+                        <h5 class="mb-0"><i class="fas fa-server"></i> Infrastructure</h5>
                     </div>
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-6">
                                 <h6>Monitoring Stack</h6>
-                                <p class="text-muted">Start Grafana and VictoriaMetrics containers</p>
-                                <button id="start-infrastructure" class="btn btn-primary">
-                                    <i class="fas fa-play"></i> Start Infrastructure
+                                <div id="infrastructure-status">
+                                    <div class="mb-2">
+                                        <span class="status-indicator status-unknown" id="vm-indicator"></span>
+                                        VictoriaMetrics: <span id="vm-status">Unknown</span>
+                                    </div>
+                                    <div class="mb-2">
+                                        <span class="status-indicator status-unknown" id="grafana-indicator"></span>
+                                        Grafana: <span id="grafana-status">Unknown</span>
+                                    </div>
+                                </div>
+                                <button id="start-infrastructure" class="btn btn-primary me-2" disabled>
+                                    <i class="fas fa-play"></i> <span class="btn-text">Start Infrastructure</span>
                                 </button>
-                                <button id="stop-infrastructure" class="btn btn-danger ms-2" disabled>
-                                    <i class="fas fa-stop"></i> Stop Infrastructure
+                                <button id="stop-infrastructure" class="btn btn-danger" disabled>
+                                    <i class="fas fa-stop"></i> <span class="btn-text">Stop Infrastructure</span>
                                 </button>
                             </div>
                             <div class="col-md-6">
-                                <div id="infrastructure-status">
-                                    <div class="alert alert-info">
-                                        <i class="fas fa-info-circle"></i> Infrastructure not started
-                                    </div>
+                                <h6>Access Points</h6>
+                                <div>
+                                    <a href="http://localhost:3001" target="_blank" class="btn btn-outline-primary btn-sm me-2">
+                                        <i class="fas fa-chart-line"></i> Grafana
+                                    </a>
+                                    <a href="http://localhost:8428" target="_blank" class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-database"></i> VictoriaMetrics
+                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -64,7 +338,7 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-header">
-                        <h5><i class="fas fa-database"></i> Database Configuration</h5>
+                        <h5 class="mb-0"><i class="fas fa-cog"></i> Database Configuration</h5>
                     </div>
                     <div class="card-body">
                         <form id="database-config-form">
@@ -92,7 +366,7 @@
                                     </div>
                                 </div>
                                 <div class="col-md-4">
-                                    <h6>Presto</h6>
+                                    <h6>Presto/Trino</h6>
                                     <div class="mb-3">
                                         <label class="form-label">Host</label>
                                         <input type="text" class="form-control" id="presto-host" placeholder="127.0.0.1">
@@ -107,47 +381,14 @@
                                     </div>
                                 </div>
                             </div>
-                            <button type="submit" class="btn btn-success">
-                                <i class="fas fa-save"></i> Save Configuration
+                            <button type="submit" id="save-config-btn" class="btn btn-success">
+                                <i class="fas fa-save"></i> <span class="btn-text">Save Configuration</span>
                             </button>
                         </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Setup Section -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h5><i class="fas fa-cogs"></i> Workload Setup</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6>Select Workloads to Setup</h6>
-                                <div id="workload-selection">
-                                    {% for workload in workloads %}
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" value="{{ workload }}" id="workload-{{ workload }}">
-                                        <label class="form-check-label" for="workload-{{ workload }}">
-                                            {{ workload.replace('_', ' ').title() }}
-                                        </label>
-                                    </div>
-                                    {% endfor %}
-                                </div>
-                                <button id="run-setup" class="btn btn-warning mt-3" disabled>
-                                    <i class="fas fa-wrench"></i> Run Setup
-                                </button>
-                            </div>
-                            <div class="col-md-6">
-                                <h6>Setup Progress</h6>
-                                <div id="setup-progress">
-                                    <div class="alert alert-info">
-                                        <i class="fas fa-info-circle"></i> Configure databases first
-                                    </div>
-                                </div>
+                        <div class="mt-3">
+                            <h6>Available Workloads</h6>
+                            <div id="available-workloads" class="d-flex flex-wrap gap-2">
+                                <!-- Workload badges will be populated here -->
                             </div>
                         </div>
                     </div>
@@ -155,17 +396,49 @@
             </div>
         </div>
 
-        <!-- Benchmark Control Section -->
+        <!-- Workload Setup Section -->
         <div class="row mb-4">
             <div class="col-12">
                 <div class="card">
                     <div class="card-header">
-                        <h5><i class="fas fa-play-circle"></i> Benchmark Control</h5>
+                        <h5 class="mb-0"><i class="fas fa-tools"></i> Workload Setup</h5>
                     </div>
                     <div class="card-body">
-                        <div id="benchmark-controls">
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle"></i> Complete setup first to enable benchmarks
+                        <div class="mb-3">
+                            <label class="form-label">Select Workloads to Setup</label>
+                            <div id="workload-selection" class="d-flex flex-wrap gap-2">
+                                <!-- Workload checkboxes will be populated here -->
+                            </div>
+                        </div>
+                        <button id="run-setup" class="btn btn-warning" disabled>
+                            <i class="fas fa-hammer"></i> <span class="btn-text">Run Setup</span>
+                        </button>
+                        <div id="setup-progress" class="mt-3" style="display: none;">
+                            <div class="progress mb-2">
+                                <div id="setup-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-warning" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <div id="setup-status" class="mb-2">
+                                <small class="text-muted">Preparing setup...</small>
+                            </div>
+                            <div id="setup-log" class="log-output mt-2"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Benchmark Controls Section -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-rocket"></i> Benchmark Controls</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <h6>Ready for Benchmarking</h6>
+                            <div id="benchmark-ready-workloads" class="d-flex flex-wrap gap-2 mb-3">
+                                <!-- Ready workloads will be populated here -->
                             </div>
                         </div>
                     </div>
@@ -173,28 +446,807 @@
             </div>
         </div>
 
-        <!-- Status Section -->
-        <div class="row">
+        <!-- Running Benchmarks Section -->
+        <div class="row mb-4">
             <div class="col-12">
                 <div class="card">
                     <div class="card-header">
-                        <h5><i class="fas fa-chart-bar"></i> Running Benchmarks</h5>
+                        <h5 class="mb-0"><i class="fas fa-play-circle"></i> Running Benchmarks</h5>
                     </div>
                     <div class="card-body">
                         <div id="running-benchmarks">
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle"></i> No benchmarks running
-                            </div>
+                            <!-- Running benchmark cards will be populated here -->
                         </div>
+                        <button id="cleanup-all" class="btn btn-danger">
+                            <i class="fas fa-trash"></i> Stop All Benchmarks
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Scripts -->
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="notification-toast" class="toast" role="alert">
+            <div class="toast-header">
+                <strong class="me-auto">Notification</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body"></div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        // Initialize Socket.IO
+        const socket = io();
+        
+        // Global state
+        let currentStatus = {};
+        let isInfrastructureReady = false;
+        
+        // Socket event handlers
+        socket.on('connect', function() {
+            document.getElementById('connection-status').textContent = 'Connected';
+            document.getElementById('connection-status').className = 'badge bg-success';
+        });
+        
+        socket.on('disconnect', function() {
+            document.getElementById('connection-status').textContent = 'Disconnected';
+            document.getElementById('connection-status').className = 'badge bg-danger';
+        });
+        
+        socket.on('status_update', function(status) {
+            currentStatus = status;
+            updateUI(status);
+        });
+
+        // Real-time runtime updates based on start times
+        let runtimeUpdateInterval;
+        let benchmarkStartTimes = {}; // Store start times for each benchmark
+
+        function startRuntimeUpdates() {
+            if (runtimeUpdateInterval) {
+                clearInterval(runtimeUpdateInterval);
+            }
+
+            runtimeUpdateInterval = setInterval(() => {
+                updateAllRuntimes();
+            }, 1000); // Update every second
+        }
+
+        function updateAllRuntimes() {
+            Object.entries(benchmarkStartTimes).forEach(([workload, startTime]) => {
+                const currentTime = Date.now();
+                const runtimeSeconds = Math.floor((currentTime - startTime) / 1000);
+
+                // Update the runtime display
+                const runtimeElement = document.getElementById(`runtime-${workload}`);
+                if (runtimeElement) {
+                    const runtime = formatRuntime(runtimeSeconds);
+                    runtimeElement.textContent = `Runtime: ${runtime}`;
+                }
+            });
+        }
+
+        function setBenchmarkStartTime(workload, startTimeSeconds) {
+            // Convert server time (seconds since epoch) to JavaScript time (milliseconds since epoch)
+            const startTimeMs = startTimeSeconds * 1000;
+            benchmarkStartTimes[workload] = startTimeMs;
+        }
+
+        function removeBenchmarkStartTime(workload) {
+            delete benchmarkStartTimes[workload];
+        }
+
+        function stopRuntimeUpdates() {
+            if (runtimeUpdateInterval) {
+                clearInterval(runtimeUpdateInterval);
+                runtimeUpdateInterval = null;
+            }
+        }
+
+        // Start runtime updates when page loads
+        startRuntimeUpdates();
+        
+        // UI Update Functions
+        function updateUI(status) {
+            updateInfrastructureStatus(status.infrastructure);
+            updateDatabaseConfig(status.databases);
+            updateWorkloads(status.workloads, status.benchmarks?.running || {});
+            updateBenchmarks(status.benchmarks);
+        }
+        
+        function updateInfrastructureStatus(infrastructure) {
+            const vmStatus = infrastructure.victoriametrics.status;
+            const grafanaStatus = infrastructure.grafana.status;
+            const previousReady = isInfrastructureReady;
+            isInfrastructureReady = infrastructure.ready;
+
+            updateStatusIndicator('vm-indicator', 'vm-status', vmStatus);
+            updateStatusIndicator('grafana-indicator', 'grafana-status', grafanaStatus);
+
+            // Update button states - always update, not just on change
+            updateInfrastructureButtons();
+
+            // Log status change for debugging
+            if (previousReady !== isInfrastructureReady) {
+                console.log(`Infrastructure status changed: ${previousReady} -> ${isInfrastructureReady}`);
+            }
+        }
+
+        function updateInfrastructureButtons() {
+            const startBtn = document.getElementById('start-infrastructure');
+            const stopBtn = document.getElementById('stop-infrastructure');
+
+            // Remove loading states first
+            startBtn.classList.remove('btn-loading');
+            stopBtn.classList.remove('btn-loading');
+
+            if (isInfrastructureReady) {
+                // Infrastructure is running - disable start, enable stop
+                startBtn.disabled = true;
+                startBtn.classList.remove('btn-primary');
+                startBtn.classList.add('btn-secondary');
+                startBtn.querySelector('.btn-text').textContent = 'Infrastructure Running';
+
+                stopBtn.disabled = false;
+                stopBtn.classList.remove('btn-secondary');
+                stopBtn.classList.add('btn-danger');
+                stopBtn.querySelector('.btn-text').textContent = 'Stop Infrastructure';
+            } else {
+                // Infrastructure is stopped - enable start, disable stop
+                startBtn.disabled = false;
+                startBtn.classList.remove('btn-secondary');
+                startBtn.classList.add('btn-primary');
+                startBtn.querySelector('.btn-text').textContent = 'Start Infrastructure';
+
+                stopBtn.disabled = true;
+                stopBtn.classList.remove('btn-danger');
+                stopBtn.classList.add('btn-secondary');
+                stopBtn.querySelector('.btn-text').textContent = 'Infrastructure Stopped';
+            }
+        }
+        
+        function updateStatusIndicator(indicatorId, statusId, status) {
+            const indicator = document.getElementById(indicatorId);
+            const statusText = document.getElementById(statusId);
+            
+            indicator.className = 'status-indicator ' + 
+                (status === 'running' ? 'status-running' : 
+                 status === 'exited' ? 'status-stopped' : 'status-unknown');
+            statusText.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+        }
+        
+        function updateDatabaseConfig(databases) {
+            if (databases.configured && databases.config) {
+                const config = databases.config;
+                document.getElementById('cassandra-host').value = config.cassandra_host || '';
+                document.getElementById('cassandra-port').value = config.cassandra_port || 9042;
+                document.getElementById('opensearch-host').value = config.opensearch_host || '';
+                document.getElementById('opensearch-port').value = config.opensearch_port || 9200;
+                document.getElementById('presto-host').value = config.presto_host || '';
+                document.getElementById('presto-port').value = config.presto_port || 8080;
+                document.getElementById('presto-user').value = config.presto_user || 'testuser';
+            }
+        }
+        
+        function updateWorkloads(workloads, runningBenchmarks = {}) {
+            const availableContainer = document.getElementById('available-workloads');
+            const selectionContainer = document.getElementById('workload-selection');
+            const benchmarkReadyContainer = document.getElementById('benchmark-ready-workloads');
+
+            availableContainer.innerHTML = '';
+            selectionContainer.innerHTML = '';
+            benchmarkReadyContainer.innerHTML = '';
+
+            if (workloads.available && workloads.available.length > 0) {
+                workloads.available.forEach(workload => {
+                    // Available workloads badges with better styling
+                    const badge = document.createElement('span');
+                    badge.className = 'badge bg-primary workload-badge fade-in';
+                    badge.textContent = workload.replace(/_/g, ' ').toUpperCase();
+
+                    // Add database type indicator
+                    let dbType = '';
+                    if (workload.includes('cassandra')) dbType = '🗄️';
+                    else if (workload.includes('opensearch')) dbType = '🔍';
+                    else if (workload.includes('presto')) dbType = '📊';
+
+                    badge.innerHTML = `${dbType} ${badge.textContent}`;
+                    availableContainer.appendChild(badge);
+
+                    // Setup selection checkboxes with better styling
+                    const checkDiv = document.createElement('div');
+                    checkDiv.className = 'form-check fade-in';
+                    checkDiv.innerHTML = `
+                        <input class="form-check-input workload-checkbox" type="checkbox" value="${workload}" id="workload-${workload}">
+                        <label class="form-check-label fw-medium" for="workload-${workload}">
+                            ${dbType} ${workload.replace(/_/g, ' ').toUpperCase()}
+                        </label>
+                    `;
+                    selectionContainer.appendChild(checkDiv);
+                });
+
+                document.getElementById('run-setup').disabled = false;
+            } else {
+                availableContainer.innerHTML = '<div class="alert alert-info mb-0"><i class="fas fa-info-circle"></i> No workloads available. Configure databases first to see available workloads.</div>';
+                document.getElementById('run-setup').disabled = true;
+            }
+
+            // Update benchmark-ready workloads
+            if (workloads.ready_for_benchmark && workloads.ready_for_benchmark.length > 0) {
+                workloads.ready_for_benchmark.forEach(workload => {
+                    const isRunning = runningBenchmarks.hasOwnProperty(workload);
+                    const existingCard = document.getElementById(`control-card-${workload}`);
+
+                    if (existingCard) {
+                        // Update existing card's state
+                        updateBenchmarkControlCard(workload, isRunning);
+                    } else {
+                        // Create new card
+                        const card = createBenchmarkControlCard(workload, isRunning);
+                        benchmarkReadyContainer.appendChild(card);
+                    }
+                });
+
+                // Remove cards for workloads no longer ready
+                const existingCards = benchmarkReadyContainer.querySelectorAll('.benchmark-control-card');
+                existingCards.forEach(card => {
+                    const workload = card.id.replace('control-card-', '');
+                    if (!workloads.ready_for_benchmark.includes(workload)) {
+                        card.remove();
+                    }
+                });
+            } else {
+                benchmarkReadyContainer.innerHTML = '<div class="alert alert-info mb-0"><i class="fas fa-info-circle"></i> No workloads ready for benchmarking. Complete setup first.</div>';
+            }
+        }
+        
+        function updateBenchmarks(benchmarks) {
+            const container = document.getElementById('running-benchmarks');
+
+            if (benchmarks.running && Object.keys(benchmarks.running).length > 0) {
+                // Update existing cards or create new ones
+                Object.entries(benchmarks.running).forEach(([workload, status]) => {
+                    const existingCard = document.getElementById(`benchmark-card-${workload}`);
+
+                    if (existingCard) {
+                        // Update existing card's runtime and status
+                        updateBenchmarkCardRuntime(workload, status);
+                    } else {
+                        // Create new card and set up runtime tracking
+                        const card = createBenchmarkCard(workload, status);
+                        container.appendChild(card);
+                    }
+
+                    // Set up or update runtime tracking with start time from backend
+                    if (status.start_time) {
+                        setBenchmarkStartTime(workload, status.start_time);
+                    }
+                });
+
+                // Remove cards for benchmarks that are no longer running
+                const existingCards = container.querySelectorAll('.benchmark-card');
+                existingCards.forEach(card => {
+                    const workload = card.id.replace('benchmark-card-', '');
+                    if (!benchmarks.running[workload]) {
+                        card.remove();
+                        // Remove from runtime tracking
+                        removeBenchmarkStartTime(workload);
+                    }
+                });
+
+                // Remove "no benchmarks" message if it exists
+                const noRunningMsg = container.querySelector('.text-muted');
+                if (noRunningMsg) {
+                    noRunningMsg.remove();
+                }
+            } else {
+                // Clear all cards and show "no benchmarks" message
+                container.innerHTML = '<p class="text-muted">No benchmarks running</p>';
+                // Clear all runtime tracking
+                benchmarkStartTimes = {};
+            }
+        }
+
+        function updateBenchmarkCardRuntime(workload, status) {
+            // Only update if we don't have live runtime tracking for this workload
+            // This prevents the backend runtime from overriding our live updates
+            if (!benchmarkStartTimes[workload]) {
+                const runtimeElement = document.getElementById(`runtime-${workload}`);
+                if (runtimeElement) {
+                    const runtime = formatRuntime(status.runtime_seconds || 0);
+                    runtimeElement.textContent = `Runtime: ${runtime}`;
+                }
+            }
+        }
+
+        function updateBenchmarkControlCard(workload, isRunning) {
+            const card = document.getElementById(`control-card-${workload}`);
+            if (!card) return;
+
+            // Update card state
+            if (isRunning) {
+                card.classList.add('disabled');
+            } else {
+                card.classList.remove('disabled');
+            }
+
+            // Update status text and buttons
+            const statusElement = card.querySelector('.workload-status');
+            const buttons = card.querySelectorAll('button');
+
+            let dbName = '';
+            if (workload.includes('cassandra')) dbName = 'Cassandra';
+            else if (workload.includes('opensearch')) dbName = 'OpenSearch';
+            else if (workload.includes('presto')) dbName = 'Presto';
+
+            if (isRunning) {
+                statusElement.innerHTML = `<i class="fas fa-play-circle text-warning"></i> Currently Running - ${dbName}`;
+                buttons.forEach(btn => {
+                    btn.disabled = true;
+                    btn.className = btn.className.replace(/btn-(success|primary)/, 'btn-secondary');
+                });
+            } else {
+                statusElement.innerHTML = `<i class="fas fa-check-circle text-success"></i> Setup Complete - Ready for ${dbName}`;
+                buttons.forEach((btn, index) => {
+                    btn.disabled = false;
+                    if (index === 0) {
+                        btn.className = btn.className.replace(/btn-secondary/, 'btn-success');
+                    } else {
+                        btn.className = btn.className.replace(/btn-secondary/, 'btn-primary');
+                    }
+                });
+            }
+        }
+        
+        function createBenchmarkCard(workload, status) {
+            const card = document.createElement('div');
+            card.className = 'card benchmark-card';
+            card.id = `benchmark-card-${workload}`;
+
+            const runtime = formatRuntime(status.runtime_seconds || 0);
+            const statusClass = status.status === 'running' ? 'success' : 'secondary';
+
+            card.innerHTML = `
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title">${workload}</h6>
+                            <p class="card-text">
+                                <span class="badge bg-${statusClass}">${status.status}</span>
+                                <span class="ms-2">Rate: ${status.cycle_rate || 0} ops/sec</span>
+                                <span class="ms-2 runtime-display" id="runtime-${workload}">Runtime: ${runtime}</span>
+                            </p>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm btn-warning me-2" onclick="updateCycleRate('${workload}')">
+                                <i class="fas fa-edit"></i> Update Rate
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="stopBenchmark('${workload}')">
+                                <i class="fas fa-stop"></i> Stop
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            return card;
+        }
+
+        function createBenchmarkControlCard(workload, isRunning = false) {
+            const card = document.createElement('div');
+            card.className = `benchmark-control-card fade-in ${isRunning ? 'disabled' : ''}`;
+            card.id = `control-card-${workload}`;
+
+            // Add database type indicator
+            let dbType = '';
+            let dbName = '';
+            if (workload.includes('cassandra')) {
+                dbType = '🗄️';
+                dbName = 'Cassandra';
+            } else if (workload.includes('opensearch')) {
+                dbType = '🔍';
+                dbName = 'OpenSearch';
+            } else if (workload.includes('presto')) {
+                dbType = '📊';
+                dbName = 'Presto';
+            }
+
+            const statusIcon = isRunning ? 'fa-play-circle text-warning' : 'fa-check-circle text-success';
+            const statusText = isRunning ? `Currently Running - ${dbName}` : `Setup Complete - Ready for ${dbName}`;
+            const buttonsDisabled = isRunning ? 'disabled' : '';
+            const buttonClass = isRunning ? 'btn-secondary' : 'btn-success';
+            const customButtonClass = isRunning ? 'btn-secondary' : 'btn-primary';
+
+            card.innerHTML = `
+                <div class="workload-name">${dbType} ${workload.replace(/_/g, ' ').toUpperCase()}</div>
+                <div class="workload-status text-muted">
+                    <i class="fas ${statusIcon}"></i> ${statusText}
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn ${buttonClass} btn-sm" onclick="startBenchmark('${workload}', 10)" ${buttonsDisabled}>
+                        <i class="fas fa-play"></i> Start (10 ops/sec)
+                    </button>
+                    <button class="btn ${customButtonClass} btn-sm" onclick="startBenchmarkCustomRate('${workload}')" ${buttonsDisabled}>
+                        <i class="fas fa-cog"></i> Custom Rate
+                    </button>
+                </div>
+            `;
+
+            return card;
+        }
+        
+        function formatRuntime(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+
+            if (hours > 0) {
+                return `${hours}h ${minutes}m ${secs}s`;
+            } else if (minutes > 0) {
+                return `${minutes}m ${secs}s`;
+            } else {
+                return `${secs}s`;
+            }
+        }
+
+        // Utility functions for button states
+        function setButtonLoading(buttonId, loadingText = 'Loading...') {
+            const btn = document.getElementById(buttonId);
+            const textSpan = btn.querySelector('.btn-text');
+            btn.classList.add('btn-loading');
+            btn.disabled = true;
+            if (textSpan) textSpan.textContent = loadingText;
+        }
+
+        function setButtonNormal(buttonId, normalText) {
+            const btn = document.getElementById(buttonId);
+            const textSpan = btn.querySelector('.btn-text');
+            btn.classList.remove('btn-loading');
+            btn.disabled = false;
+            if (textSpan) textSpan.textContent = normalText;
+        }
+
+        function setButtonState(buttonId, enabled, text) {
+            const btn = document.getElementById(buttonId);
+            const textSpan = btn.querySelector('.btn-text');
+            btn.disabled = !enabled;
+            if (textSpan) textSpan.textContent = text;
+        }
+        
+        // Event Handlers
+        document.getElementById('start-infrastructure').addEventListener('click', function() {
+            setButtonLoading('start-infrastructure', 'Starting...');
+
+            fetch('/api/infrastructure/start', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('Infrastructure started successfully', 'success');
+                        // Force a status update to refresh button states
+                        setTimeout(() => {
+                            fetch('/api/status')
+                                .then(response => response.json())
+                                .then(status => updateUI(status))
+                                .catch(error => console.error('Failed to refresh status:', error));
+                        }, 1000); // Wait 1 second for containers to be ready
+                    } else {
+                        showNotification('Failed to start infrastructure: ' + data.error, 'error');
+                        updateInfrastructureButtons(); // Reset button states
+                    }
+                })
+                .catch(error => {
+                    showNotification('Error: ' + error.message, 'error');
+                    updateInfrastructureButtons(); // Reset button states
+                });
+        });
+        
+        document.getElementById('stop-infrastructure').addEventListener('click', function() {
+            setButtonLoading('stop-infrastructure', 'Stopping...');
+
+            fetch('/api/infrastructure/stop', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('Infrastructure stopped successfully', 'success');
+                        // Force a status update to refresh button states
+                        setTimeout(() => {
+                            fetch('/api/status')
+                                .then(response => response.json())
+                                .then(status => updateUI(status))
+                                .catch(error => console.error('Failed to refresh status:', error));
+                        }, 1000); // Wait 1 second for containers to stop
+                    } else {
+                        showNotification('Failed to stop infrastructure: ' + data.error, 'error');
+                        updateInfrastructureButtons(); // Reset button states
+                    }
+                })
+                .catch(error => {
+                    showNotification('Error: ' + error.message, 'error');
+                    updateInfrastructureButtons(); // Reset button states
+                });
+        });
+        
+        document.getElementById('database-config-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            setButtonLoading('save-config-btn', 'Saving...');
+
+            const config = {
+                cassandra_host: document.getElementById('cassandra-host').value,
+                cassandra_port: parseInt(document.getElementById('cassandra-port').value),
+                opensearch_host: document.getElementById('opensearch-host').value,
+                opensearch_port: parseInt(document.getElementById('opensearch-port').value),
+                presto_host: document.getElementById('presto-host').value,
+                presto_port: parseInt(document.getElementById('presto-port').value),
+                presto_user: document.getElementById('presto-user').value
+            };
+
+            fetch('/api/databases/configure', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(config)
+            })
+            .then(response => response.json())
+            .then(data => {
+                setButtonNormal('save-config-btn', 'Save Configuration');
+                if (data.success) {
+                    showNotification(`Configuration saved! ${data.available_workloads.length} workloads available`, 'success');
+                    // Trigger a status update to refresh workloads
+                    setTimeout(() => {
+                        fetch('/api/status')
+                            .then(response => response.json())
+                            .then(status => updateUI(status));
+                    }, 500);
+                } else {
+                    showNotification('Failed to save configuration: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                setButtonNormal('save-config-btn', 'Save Configuration');
+                showNotification('Error: ' + error.message, 'error');
+            });
+        });
+        
+        document.getElementById('run-setup').addEventListener('click', function() {
+            const selectedWorkloads = Array.from(document.querySelectorAll('.workload-checkbox:checked'))
+                .map(cb => cb.value);
+
+            if (selectedWorkloads.length === 0) {
+                showNotification('Please select at least one workload', 'warning');
+                return;
+            }
+
+            // Setup progress UI
+            const progressDiv = document.getElementById('setup-progress');
+            const progressBar = document.getElementById('setup-progress-bar');
+            const statusDiv = document.getElementById('setup-status');
+            const logDiv = document.getElementById('setup-log');
+            const setupButton = document.getElementById('run-setup');
+
+            // Show progress and disable button
+            progressDiv.style.display = 'block';
+            setupButton.disabled = true;
+            setupButton.querySelector('.btn-text').textContent = 'Running Setup...';
+            setupButton.querySelector('i').className = 'fas fa-spinner fa-spin';
+
+            // Initialize progress
+            progressBar.style.width = '10%';
+            statusDiv.innerHTML = `<small class="text-info"><i class="fas fa-cog fa-spin"></i> Starting setup for ${selectedWorkloads.length} workload(s)...</small>`;
+            logDiv.innerHTML = `Starting setup for: ${selectedWorkloads.join(', ')}\n`;
+
+            // Simulate progress updates
+            let progress = 10;
+            const progressInterval = setInterval(() => {
+                if (progress < 90) {
+                    progress += Math.random() * 15;
+                    progressBar.style.width = Math.min(progress, 90) + '%';
+                }
+            }, 500);
+
+            fetch('/api/setup/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    workloads: selectedWorkloads,
+                    auto_start_benchmarks: false
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                clearInterval(progressInterval);
+
+                if (data.success) {
+                    // Complete progress
+                    progressBar.style.width = '100%';
+                    progressBar.className = 'progress-bar bg-success';
+                    statusDiv.innerHTML = '<small class="text-success"><i class="fas fa-check-circle"></i> Setup completed successfully!</small>';
+
+                    showNotification('Setup completed successfully', 'success');
+                    logDiv.innerHTML += 'Setup completed successfully!\n';
+
+                    // Trigger immediate UI refresh to show benchmark controls
+                    setTimeout(() => {
+                        fetch('/api/status')
+                            .then(response => response.json())
+                            .then(status => updateUI(status))
+                            .catch(error => console.error('Failed to refresh status:', error));
+                    }, 500);
+                } else {
+                    // Show error
+                    progressBar.className = 'progress-bar bg-danger';
+                    statusDiv.innerHTML = '<small class="text-danger"><i class="fas fa-exclamation-circle"></i> Setup failed!</small>';
+
+                    showNotification('Setup failed: ' + data.error, 'error');
+                    logDiv.innerHTML += 'Setup failed: ' + data.error + '\n';
+                }
+
+                // Reset button after delay
+                setTimeout(() => {
+                    setupButton.disabled = false;
+                    setupButton.querySelector('.btn-text').textContent = 'Run Setup';
+                    setupButton.querySelector('i').className = 'fas fa-hammer';
+                    progressDiv.style.display = 'none';
+                    progressBar.style.width = '0%';
+                    progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated bg-warning';
+                }, 3000);
+            })
+            .catch(error => {
+                clearInterval(progressInterval);
+                progressBar.className = 'progress-bar bg-danger';
+                statusDiv.innerHTML = '<small class="text-danger"><i class="fas fa-exclamation-circle"></i> Setup error!</small>';
+
+                showNotification('Error: ' + error.message, 'error');
+                logDiv.innerHTML += 'Error: ' + error.message + '\n';
+
+                // Reset button after delay
+                setTimeout(() => {
+                    setupButton.disabled = false;
+                    setupButton.querySelector('.btn-text').textContent = 'Run Setup';
+                    setupButton.querySelector('i').className = 'fas fa-hammer';
+                    progressDiv.style.display = 'none';
+                    progressBar.style.width = '0%';
+                    progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated bg-warning';
+                }, 3000);
+            });
+        });
+        
+        document.getElementById('cleanup-all').addEventListener('click', function() {
+            if (confirm('Are you sure you want to stop all running benchmarks?')) {
+                fetch('/api/cleanup', { method: 'POST' })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showNotification('All benchmarks stopped', 'success');
+
+                            // Trigger immediate UI refresh to clear all benchmarks
+                            setTimeout(() => {
+                                fetch('/api/status')
+                                    .then(response => response.json())
+                                    .then(status => updateUI(status))
+                                    .catch(error => console.error('Failed to refresh status:', error));
+                            }, 500);
+                        } else {
+                            showNotification('Failed to stop benchmarks: ' + data.error, 'error');
+                        }
+                    })
+                    .catch(error => showNotification('Error: ' + error.message, 'error'));
+            }
+        });
+        
+        function stopBenchmark(workload) {
+            fetch('/api/benchmarks/stop', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ workload: workload })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(`Benchmark ${workload} stopped`, 'success');
+
+                    // Trigger immediate UI refresh to remove stopped benchmark
+                    setTimeout(() => {
+                        fetch('/api/status')
+                            .then(response => response.json())
+                            .then(status => updateUI(status))
+                            .catch(error => console.error('Failed to refresh status:', error));
+                    }, 500);
+                } else {
+                    showNotification(`Failed to stop ${workload}: ` + data.error, 'error');
+                }
+            })
+            .catch(error => showNotification('Error: ' + error.message, 'error'));
+        }
+        
+        function updateCycleRate(workload) {
+            const newRate = prompt(`Enter new cycle rate for ${workload}:`, '10');
+            if (newRate && !isNaN(newRate)) {
+                fetch('/api/benchmarks/update-rate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ workload: workload, cycle_rate: parseInt(newRate) })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification(`Cycle rate updated for ${workload}`, 'success');
+
+                        // Trigger immediate UI refresh to show updated rate
+                        setTimeout(() => {
+                            fetch('/api/status')
+                                .then(response => response.json())
+                                .then(status => updateUI(status))
+                                .catch(error => console.error('Failed to refresh status:', error));
+                        }, 1000); // Slightly longer delay for rate update
+                    } else {
+                        showNotification(`Failed to update rate: ` + data.error, 'error');
+                    }
+                })
+                .catch(error => showNotification('Error: ' + error.message, 'error'));
+            }
+        }
+
+        function startBenchmark(workload, cycleRate) {
+            fetch('/api/benchmarks/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ workload: workload, cycle_rate: cycleRate })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(`Benchmark ${workload} started with ${cycleRate} ops/sec`, 'success');
+
+                    // Trigger immediate UI refresh to show running benchmark
+                    setTimeout(() => {
+                        fetch('/api/status')
+                            .then(response => response.json())
+                            .then(status => updateUI(status))
+                            .catch(error => console.error('Failed to refresh status:', error));
+                    }, 500);
+                } else {
+                    showNotification(`Failed to start ${workload}: ` + data.error, 'error');
+                }
+            })
+            .catch(error => showNotification('Error: ' + error.message, 'error'));
+        }
+
+        function startBenchmarkCustomRate(workload) {
+            const customRate = prompt(`Enter cycle rate for ${workload}:`, '10');
+            if (customRate && !isNaN(customRate) && parseInt(customRate) > 0) {
+                startBenchmark(workload, parseInt(customRate));
+            } else if (customRate !== null) {
+                showNotification('Please enter a valid positive number for cycle rate', 'warning');
+            }
+        }
+        
+        function showNotification(message, type) {
+            const toast = document.getElementById('notification-toast');
+            const toastBody = toast.querySelector('.toast-body');
+            
+            toastBody.textContent = message;
+            toast.className = `toast ${type === 'error' ? 'bg-danger text-white' : 
+                                     type === 'warning' ? 'bg-warning' : 
+                                     type === 'success' ? 'bg-success text-white' : ''}`;
+            
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+        }
+        
+        // Initial load
+        fetch('/api/status')
+            .then(response => response.json())
+            .then(data => {
+                updateUI(data);
+                // Ensure button states are set correctly on initial load
+                updateInfrastructureButtons();
+            })
+            .catch(error => console.error('Failed to load initial status:', error));
+    </script>
 </body>
 </html>

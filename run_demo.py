@@ -89,14 +89,25 @@ def main():
     
     try:
         from app import app, socketio, graceful_shutdown
-        socketio.run(app, host='0.0.0.0', port=5000, debug=False)
+        socketio.run(app, host='0.0.0.0', port=5000, debug=False, allow_unsafe_werkzeug=True)
     except KeyboardInterrupt:
         logger.info("Application stopped by user")
-        graceful_shutdown()
+        try:
+            graceful_shutdown()
+        except:
+            pass
+        finally:
+            import os
+            os._exit(0)
     except Exception as e:
         logger.error(f"Failed to start application: {e}")
-        graceful_shutdown()
-        sys.exit(1)
+        try:
+            graceful_shutdown()
+        except:
+            pass
+        finally:
+            import os
+            os._exit(1)
 
 if __name__ == "__main__":
     main()

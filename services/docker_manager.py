@@ -132,7 +132,7 @@ class DockerManager:
                     'GF_AUTH_DISABLE_SIGNOUT_MENU': 'true'
                 },
                 volumes={
-                    f'{current_dir}/docker/grafana/dashboards': {'bind': '/etc/grafana/provisioning/dashboards', 'mode': 'ro'}
+                    f'{current_dir}/docker/monitoring/grafana/provisioning': {'bind': '/etc/grafana/provisioning', 'mode': 'ro'}
                 },
                 network=self.network_name,
                 detach=True,
@@ -220,7 +220,7 @@ class DockerManager:
         import json
         import os
 
-        dashboard_path = os.path.join(os.getcwd(), "docker/grafana/dashboards/tentative-dashboard.json")
+        dashboard_path = os.path.join(os.getcwd(), "docker/monitoring/grafana/provisioning/dashboards/database-benchmarking-overview.json")
 
         if not os.path.exists(dashboard_path):
             logger.warning(f"Dashboard file not found: {dashboard_path}")

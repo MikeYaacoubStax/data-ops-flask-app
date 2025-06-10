@@ -217,64 +217,7 @@ Workload definitions are in `config.py`. Each workload includes:
 - **Prometheus Format**: Standard metrics format
 - **Real-time Updates**: 2-second refresh intervals
 
-## 🗂️ Project Structure
 
-```
-data-ops-flask-app/
-├── app.py                 # Main Flask application
-├── config.py             # Application configuration
-├── run_demo.py           # Application launcher
-├── requirements.txt      # Python dependencies
-├── services/             # Core service modules
-│   ├── benchmark_manager.py  # NoSQLBench process management
-│   ├── docker_manager.py     # Docker container management
-│   └── state_manager.py      # Application state persistence
-├── demo_workloads/       # NoSQLBench workload definitions
-├── templates/            # HTML templates
-├── static/              # CSS, JavaScript, assets
-└── docker/              # 🐳 COMPLETE DOCKER INFRASTRUCTURE
-    ├── manage.sh                           # Main management script
-    ├── run-local-nb5.sh                   # Local nb5 command runner
-    ├── validate.sh                        # Infrastructure validation
-    ├── .env                               # Environment configuration
-    ├── README.md                          # Docker infrastructure docs
-    ├── docker-compose.yml                 # Main orchestration
-    ├── docker-compose.monitoring.yml      # Monitoring stack
-    ├── docker-compose.databases.yml       # Database stack
-    ├── docker-compose.nosqlbench-setup.yml # Setup containers
-    ├── docker-compose.nosqlbench-run.yml   # Benchmark containers
-    ├── monitoring/                        # Monitoring configurations
-    │   ├── grafana/                       # Grafana dashboards & datasources
-    │   └── graphite/                      # Graphite configuration
-    ├── databases/                         # Database configurations
-    │   ├── cassandra/                     # Cassandra config & JVM options
-    │   ├── opensearch/                    # OpenSearch config & JVM options
-    │   ├── trino/                         # Trino config & catalogs
-    │   └── postgres/                      # PostgreSQL init scripts
-    └── nosqlbench/                        # NoSQLBench scripts
-        └── scripts/                       # Helper scripts
-```
-
-## 🔌 API Reference
-
-### Infrastructure Endpoints
-- `POST /api/infrastructure/start` - Start monitoring containers
-- `GET /api/infrastructure/status` - Get infrastructure status
-- `POST /api/infrastructure/stop` - Stop infrastructure
-
-### Database Endpoints
-- `POST /api/databases/configure` - Configure database connections
-- `GET /api/workloads/available` - Get available workloads
-
-### Benchmark Endpoints
-- `POST /api/setup/run` - Run workload setup phases
-- `POST /api/benchmarks/start` - Start benchmark
-- `POST /api/benchmarks/stop` - Stop benchmark
-- `POST /api/benchmarks/update-rate` - Update cycle rate
-- `GET /api/status` - Get application status
-
-### Utility Endpoints
-- `POST /api/cleanup` - Stop all benchmarks and cleanup
 
 ## 🐳 Docker Integration
 
@@ -295,13 +238,6 @@ cd docker
 **Available Services:**
 - **Databases**: Cassandra (9042), OpenSearch (9200), Trino (8080), PostgreSQL (5432)
 - **Monitoring**: Grafana (3000), VictoriaMetrics (8428), Graphite (8081)
-
-### ⚠️ Docker Limitation
-**Docker containers use standard NoSQLBench images which lack OpenSearch/Presto drivers.**
-
-**Workarounds:**
-1. **Use local nb5 command** (recommended): `./docker/run-local-nb5.sh`
-2. **Wait for custom Docker images** to be published
 
 ### NoSQLBench Workload Execution
 
@@ -368,40 +304,6 @@ If the application state becomes corrupted:
 rm app_state.json
 ```
 
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the terms specified in the LICENSE file.
-
-## 🔧 Advanced Configuration
-
-### Custom Workloads
-To add custom NoSQLBench workloads:
-
-1. **Create Workload YAML**
-   ```bash
-   # Place in demo_workloads/ directory
-   cp demo_workloads/sai_longrun.yaml demo_workloads/my_custom_workload.yaml
-   ```
-
-2. **Update Configuration**
-   ```python
-   # In config.py, add to workload_configs
-   'my_custom_workload': {
-       'file': 'demo_workloads/my_custom_workload.yaml',
-       'setup_phases': ['setup.schema', 'setup.rampup'],
-       'run_phase': 'main.benchmark',
-       'driver': 'cql',  # or 'opensearch', 'jdbc'
-       'keyspace': 'my_keyspace'  # for Cassandra workloads
-   }
-   ```
 
 ### Environment-Specific Settings
 
@@ -487,36 +389,6 @@ python -c "from services.benchmark_manager import BenchmarkManager; print('OK')"
 - Start with small workloads to verify setup
 - Gradually increase load to find performance limits
 - Monitor system resources during tests
-
-## 🔄 Backup and Recovery
-
-### State Backup
-```bash
-# Backup application state
-cp app_state.json app_state.json.backup
-```
-
-### Database Backup
-- **Cassandra**: Use `nodetool snapshot`
-- **OpenSearch**: Use snapshot API
-- **Presto**: Backup underlying data sources
-
-### Recovery Procedures
-1. Stop all running benchmarks
-2. Restore database from backup
-3. Reset application state if needed
-4. Restart infrastructure and benchmarks
-
-## 🆘 Support
-
-For issues and questions:
-1. Check the troubleshooting section
-2. Review application logs
-3. Create an issue with detailed information including:
-   - Operating system
-   - Python version
-   - Docker version
-   - Error messages and logs
 
 ## 📚 Additional Resources
 

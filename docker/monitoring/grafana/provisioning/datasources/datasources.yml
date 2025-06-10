@@ -5,7 +5,7 @@ datasources:
   - name: VictoriaMetrics
     type: prometheus
     access: proxy
-    url: http://victoriametrics:8428
+    url: http://demo-victoriametrics:8428
     isDefault: true
     editable: true
     jsonData:
@@ -18,7 +18,7 @@ datasources:
   - name: VictoriaMetrics-InfluxDB
     type: influxdb
     access: proxy
-    url: http://victoriametrics:8089
+    url: http://demo-victoriametrics:8089
     database: "metrics"
     isDefault: false
     editable: true
@@ -30,7 +30,7 @@ datasources:
   - name: VictoriaMetrics-Graphite
     type: graphite
     access: proxy
-    url: http://victoriametrics:2003
+    url: http://demo-victoriametrics:2003
     isDefault: false
     editable: true
     jsonData:
@@ -42,7 +42,7 @@ datasources:
   - name: Node Exporter
     type: prometheus
     access: proxy
-    url: http://node-exporter:9100
+    url: http://demo-node-exporter:9100
     isDefault: false
     editable: true
     jsonData:

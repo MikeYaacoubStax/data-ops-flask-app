@@ -195,7 +195,7 @@ class BenchmarkManager:
 
         return cmd
     
-    def run_setup_phase(self, workload_name: str, database_config: Dict[str, Any]) -> Dict[str, Any]:
+    def run_setup_phase(self, workload_name: str, database_config: Dict[str, Any], auto_start_benchmark: bool = True) -> Dict[str, Any]:
         """Run setup phases for a workload"""
         workload_config = self.config.workload_configs.get(workload_name)
         if not workload_config:
@@ -206,14 +206,14 @@ class BenchmarkManager:
         if not self.is_database_configured(driver, database_config):
             db_name = {"cql": "Cassandra", "opensearch": "OpenSearch", "jdbc": "Presto"}.get(driver, driver)
             return {"success": False, "error": f"{db_name} database is not configured for workload {workload_name}"}
-        
+
         setup_phases = workload_config["setup_phases"]
         results = []
-        
+
         # Initialize setup status for this workload
         if workload_name not in self.setup_status:
             self.setup_status[workload_name] = {}
-        
+
         for phase in setup_phases:
             logger.info(f"Running setup phase {phase} for {workload_name}")
 
@@ -241,7 +241,7 @@ class BenchmarkManager:
                         text=True,
                         timeout=600  # 10 minute timeout for setup phases
                     )
-                
+
                 success = result.returncode == 0
                 self.setup_status[workload_name][phase] = success
 
@@ -252,11 +252,11 @@ class BenchmarkManager:
                     "stderr": "",  # Output is captured in files
                     "return_code": result.returncode
                 })
-                
+
                 if not success:
                     logger.error(f"Setup phase {phase} failed for {workload_name}")
                     break
-                    
+
             except subprocess.TimeoutExpired:
                 logger.error(f"Setup phase {phase} timed out for {workload_name}")
                 results.append({
@@ -273,12 +273,29 @@ class BenchmarkManager:
                     "error": str(e)
                 })
                 break
-        
+
         all_success = all(result.get("success", False) for result in results)
+
+        # Auto-start benchmark if setup completed successfully and auto_start_benchmark is True
+        benchmark_started = False
+        if all_success and auto_start_benchmark:
+            logger.info(f"Setup completed successfully for {workload_name}, auto-starting benchmark")
+            benchmark_result = self.start_benchmark(
+                workload_name,
+                self.config.benchmark.default_cycle_rate,
+                database_config
+            )
+            benchmark_started = benchmark_result.get("success", False)
+            if benchmark_started:
+                logger.info(f"Auto-started benchmark for {workload_name} with cycle rate {self.config.benchmark.default_cycle_rate}")
+            else:
+                logger.warning(f"Failed to auto-start benchmark for {workload_name}: {benchmark_result.get('error', 'Unknown error')}")
+
         return {
             "success": all_success,
             "workload": workload_name,
-            "results": results
+            "results": results,
+            "benchmark_started": benchmark_started
         }
     
     def start_benchmark(self, workload_name: str, cycle_rate: int,
@@ -473,7 +490,8 @@ class BenchmarkManager:
                         "pid": benchmark_process.pid,
                         "cycle_rate": benchmark_process.cycle_rate,
                         "runtime_seconds": runtime,
-                        "phase": benchmark_process.phase
+                        "phase": benchmark_process.phase,
+                        "start_time": benchmark_process.original_start_time  # Add start time for frontend
                     }
                     # Debug logging for runtime tracking (can be removed later)
                     if logger.isEnabledFor(logging.DEBUG):
@@ -501,6 +519,27 @@ class BenchmarkManager:
         """Get setup status for all workloads"""
         with self.lock:
             return self.setup_status.copy()
+
+    def get_workloads_ready_for_benchmark(self, database_config: Dict[str, Any]) -> List[str]:
+        """Get list of workloads that have completed setup and are ready for benchmarking"""
+        ready_workloads = []
+
+        with self.lock:
+            for workload_name, phases_status in self.setup_status.items():
+                # Check if all setup phases are completed
+                if all(phases_status.values()):
+                    # Check if the required database is still configured
+                    workload_config = self.config.workload_configs.get(workload_name)
+                    if workload_config:
+                        driver = workload_config["driver"]
+                        if self.is_database_configured(driver, database_config):
+                            ready_workloads.append(workload_name)
+
+        return ready_workloads
+
+    def is_workload_ready_for_benchmark(self, workload_name: str, database_config: Dict[str, Any]) -> bool:
+        """Check if a specific workload is ready for benchmarking"""
+        return workload_name in self.get_workloads_ready_for_benchmark(database_config)
     
     def cleanup_all(self) -> Dict[str, Any]:
         """Stop all running benchmarks"""
