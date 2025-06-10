@@ -24,9 +24,9 @@ services:
       sh -c "
         echo 'Checking infrastructure health...' &&
         echo 'Checking VictoriaMetrics...' &&
-        curl -f http://victoriametrics:8428/health &&
+        curl -f http://demo-victoriametrics:8428/health &&
         echo 'Checking Grafana...' &&
-        curl -f http://grafana:3000/api/health &&
+        curl -f http://demo-grafana:3000/api/health &&
         echo 'Checking Cassandra...' &&
         nc -z cassandra 9042 &&
         echo 'Checking OpenSearch...' &&
@@ -39,9 +39,9 @@ services:
       - nosqlbench-monitoring
       - nosqlbench-databases
     depends_on:
-      victoriametrics:
+      demo-victoriametrics:
         condition: service_healthy
-      grafana:
+      demo-grafana:
         condition: service_healthy
       cassandra:
         condition: service_healthy

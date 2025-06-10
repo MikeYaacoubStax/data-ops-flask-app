@@ -882,8 +882,8 @@
       },
       {
         "current": {
-          "text": "Node Exporter",
-          "value": "PAA1DF9127C6052BB"
+          "text": "VictoriaMetrics",
+          "value": "P4169E866C3094E38"
         },
         "hide": 2,
         "includeAll": false,
@@ -892,7 +892,7 @@
         "options": [],
         "query": "prometheus",
         "refresh": 1,
-        "regex": "",
+        "regex": "VictoriaMetrics",
         "type": "datasource"
       }
     ]

@@ -179,7 +179,7 @@ services:
       - nosqlbench-network
     depends_on:
       - opensearch
-      - victoriametrics
+      - demo-victoriametrics
     restart: "no"
     profiles:
       - run
@@ -221,7 +221,7 @@ services:
       - nosqlbench-network
     depends_on:
       - opensearch
-      - victoriametrics
+      - demo-victoriametrics
     restart: "no"
     profiles:
       - run
@@ -263,7 +263,7 @@ services:
       - nosqlbench-network
     depends_on:
       - presto
-      - victoriametrics
+      - demo-victoriametrics
     restart: "no"
     profiles:
       - run
@@ -305,7 +305,7 @@ services:
       - nosqlbench-network
     depends_on:
       - presto
-      - victoriametrics
+      - demo-victoriametrics
     restart: "no"
     profiles:
       - run

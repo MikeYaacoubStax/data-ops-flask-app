@@ -33,7 +33,7 @@ services:
 
 
   # Grafana - Visualization and dashboards (matching Flask app setup)
-  grafana:
+  demo-grafana:
     image: grafana/grafana:latest
     container_name: demo-grafana
     ports:
@@ -64,7 +64,7 @@ services:
     restart: unless-stopped
 
   # Prometheus Node Exporter for system metrics
-  node-exporter:
+  demo-node-exporter:
     image: prom/node-exporter:latest
     container_name: demo-node-exporter
     ports:
