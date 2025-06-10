@@ -1,0 +1,80 @@
+# JVM options for Cassandra optimized for NoSQLBench testing
+
+# Heap size - will be overridden by environment variables
+-Xms2G
+-Xmx2G
+
+# Young generation size
+-Xmn400M
+
+# GC settings optimized for throughput
+-XX:+UseG1GC
+-XX:+UnlockExperimentalVMOptions
+-XX:G1NewSizePercent=20
+-XX:G1MaxNewSizePercent=30
+-XX:MaxGCPauseMillis=200
+-XX:G1HeapRegionSize=16m
+-XX:G1HeapWastePercent=5
+-XX:G1MixedGCCountTarget=8
+-XX:InitiatingHeapOccupancyPercent=70
+-XX:G1MixedGCLiveThresholdPercent=85
+-XX:G1OldCSetRegionThresholdPercent=10
+
+# GC logging
+-Xloggc:/var/log/cassandra/gc.log
+-XX:+UseGCLogFileRotation
+-XX:NumberOfGCLogFiles=10
+-XX:GCLogFileSize=10M
+-XX:+PrintGC
+-XX:+PrintGCDetails
+-XX:+PrintGCTimeStamps
+-XX:+PrintGCApplicationStoppedTime
+-XX:+PrintPromotionFailure
+-XX:+UseGCLogFileRotation
+-XX:+PrintStringDeduplicationStatistics
+
+# Performance and debugging
+-XX:+UnlockDiagnosticVMOptions
+-XX:+LogVMOutput
+-XX:+UseCondCardMark
+-XX:CompileCommandFile=/etc/cassandra/hotspot_compiler
+-XX:CMSWaitDuration=10000
+-XX:+CMSParallelRemarkEnabled
+-XX:+CMSParallelSurvivorRemarkEnabled
+-XX:+CMSConcurrentMTEnabled
+-XX:+CMSClassUnloadingEnabled
+-XX:+UseTLAB
+-XX:+ResizeTLAB
+-XX:+UseNUMA
+-XX:+PerfDisableSharedMem
+
+# Memory settings
+-XX:+HeapDumpOnOutOfMemoryError
+-XX:HeapDumpPath=/var/lib/cassandra/java_pid.hprof
+-XX:+ExitOnOutOfMemoryError
+
+# Network and I/O
+-Djava.net.preferIPv4Stack=true
+-Dcom.sun.management.jmxremote.port=7199
+-Dcom.sun.management.jmxremote.rmi.port=7199
+-Dcom.sun.management.jmxremote.ssl=false
+-Dcom.sun.management.jmxremote.authenticate=false
+-Djava.rmi.server.hostname=127.0.0.1
+
+# Cassandra specific
+-Dcassandra.available_processors=4
+-Dcassandra.config=file:///etc/cassandra/cassandra.yaml
+-Dcassandra.logdir=/var/log/cassandra
+-Dcassandra.storagedir=/var/lib/cassandra
+-Dcassandra.triggers_dir=/etc/cassandra/triggers
+-Dcassandra.jmx.local.port=7199
+
+# Security
+-Djava.security.egd=file:/dev/./urandom
+
+# Disable assertions for performance
+-da
+
+# Enable flight recorder for debugging (optional)
+# -XX:+FlightRecorder
+# -XX:StartFlightRecording=duration=60s,filename=/var/lib/cassandra/flight.jfr

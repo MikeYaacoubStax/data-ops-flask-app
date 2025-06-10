@@ -1,0 +1,110 @@
+version: '3.8'
+
+services:
+  # Cassandra Database
+  cassandra:
+    image: cassandra:4.1
+    container_name: databases-cassandra
+    ports:
+      - "${CASSANDRA_CQL_PORT:-9042}:9042"
+      - "${CASSANDRA_INTER_NODE_PORT:-7000}:7000"
+      - "${CASSANDRA_JMX_PORT:-7199}:7199"
+    environment:
+      - CASSANDRA_CLUSTER_NAME=${CASSANDRA_CLUSTER_NAME:-NoSQLBenchCluster}
+      - CASSANDRA_DC=${CASSANDRA_DC:-datacenter1}
+      - CASSANDRA_RACK=${CASSANDRA_RACK:-rack1}
+      - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
+      - CASSANDRA_NUM_TOKENS=128
+      - CASSANDRA_SEEDS=cassandra
+      - MAX_HEAP_SIZE=${CASSANDRA_MAX_HEAP:-2G}
+      - HEAP_NEWSIZE=${CASSANDRA_HEAP_NEW:-400M}
+      - JVM_OPTS=-Dcassandra.skip_wait_for_gossip_to_settle=0 -Dcassandra.initial_token=0
+    volumes:
+      - cassandra-data:/var/lib/cassandra
+      - ./databases/cassandra/cassandra.yaml:/etc/cassandra/cassandra.yaml
+      - ./databases/cassandra/jvm.options:/etc/cassandra/jvm.options
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'describe cluster' || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 10
+      start_period: 120s
+    networks:
+      - databases-network
+    restart: unless-stopped
+
+  # OpenSearch Database
+  opensearch:
+    image: opensearchproject/opensearch:2.11.0
+    container_name: databases-opensearch
+    ports:
+      - "${OPENSEARCH_HTTP_PORT:-9200}:9200"
+      - "${OPENSEARCH_TRANSPORT_PORT:-9300}:9300"
+    environment:
+      - cluster.name=${OPENSEARCH_CLUSTER_NAME:-nosqlbench-cluster}
+      - node.name=opensearch-node1
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms${OPENSEARCH_HEAP:-1g} -Xmx${OPENSEARCH_HEAP:-1g}"
+      - "DISABLE_INSTALL_DEMO_CONFIG=true"
+      - "DISABLE_SECURITY_PLUGIN=true"
+      - "ES_JAVA_OPTS=-Xms${OPENSEARCH_HEAP:-1g} -Xmx${OPENSEARCH_HEAP:-1g}"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+      - ./databases/opensearch/opensearch.yml:/usr/share/opensearch/config/opensearch.yml
+      - ./databases/opensearch/jvm.options:/usr/share/opensearch/config/jvm.options
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      - databases-network
+    restart: unless-stopped
+
+  # Presto Database
+  presto:
+    image: prestodb/presto:latest
+    container_name: databases-presto
+    ports:
+      - "${PRESTO_HTTP_PORT:-8080}:8080"
+    environment:
+      - PRESTO_ENVIRONMENT=${PRESTO_ENVIRONMENT:-production}
+    volumes:
+      - presto-data:/data/presto
+      - ./databases/presto/config.properties:/etc/presto/config.properties
+      - ./databases/presto/node.properties:/etc/presto/node.properties
+      - ./databases/presto/jvm.config:/etc/presto/jvm.config
+      - ./databases/presto/catalog:/etc/presto/catalog
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/v1/info || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - databases-network
+    restart: unless-stopped
+
+
+
+volumes:
+  cassandra-data:
+    driver: local
+  opensearch-data:
+    driver: local
+  presto-data:
+    driver: local
+
+networks:
+  databases-network:
+    driver: bridge
+    name: nosqlbench-databases

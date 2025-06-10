@@ -1,0 +1,61 @@
+version: '3.8'
+
+# Main Docker Compose file that includes all other compose files
+# This provides a unified interface to manage the entire NoSQLBench infrastructure
+
+# Usage Examples:
+# docker-compose --profile monitoring up -d                    # Start monitoring only
+# docker-compose --profile databases up -d                     # Start databases only
+# docker-compose --profile all up -d                          # Start monitoring + databases
+# docker-compose -f docker-compose.nosqlbench-setup.yml --profile setup up  # Run setup phases
+# docker-compose -f docker-compose.nosqlbench-run.yml --profile run up       # Run benchmarks
+
+include:
+  - docker-compose.monitoring.yml
+  - docker-compose.databases.yml
+
+# Additional services that depend on both monitoring and databases
+services:
+  # Health check service to verify all systems are ready
+  health-check:
+    image: curlimages/curl:latest
+    container_name: infrastructure-health-check
+    command: >
+      sh -c "
+        echo 'Checking infrastructure health...' &&
+        echo 'Checking VictoriaMetrics...' &&
+        curl -f http://victoriametrics:8428/health &&
+        echo 'Checking Grafana...' &&
+        curl -f http://grafana:3000/api/health &&
+        echo 'Checking Cassandra...' &&
+        nc -z cassandra 9042 &&
+        echo 'Checking OpenSearch...' &&
+        curl -f http://opensearch:9200/_cluster/health &&
+        echo 'Checking Presto...' &&
+        curl -f http://presto:8080/v1/info &&
+        echo 'All services are healthy!'
+      "
+    networks:
+      - nosqlbench-monitoring
+      - nosqlbench-databases
+    depends_on:
+      victoriametrics:
+        condition: service_healthy
+      grafana:
+        condition: service_healthy
+      cassandra:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+      presto:
+        condition: service_healthy
+    restart: "no"
+    profiles:
+      - health-check
+
+# Create shared networks that can be used by setup and run containers
+networks:
+  nosqlbench-monitoring:
+    external: true
+  nosqlbench-databases:
+    external: true

@@ -1,0 +1,79 @@
+# JVM options for OpenSearch optimized for NoSQLBench testing
+
+# Heap size - will be overridden by environment variables
+-Xms1g
+-Xmx1g
+
+# GC settings optimized for search workloads
+-XX:+UseG1GC
+-XX:G1HeapRegionSize=16m
+-XX:+UnlockExperimentalVMOptions
+# -XX:+UseCGroupMemoryLimitForHeap  # Removed - not available in this JVM version
+-XX:InitiatingHeapOccupancyPercent=30
+-XX:G1NewSizePercent=30
+-XX:G1MaxNewSizePercent=40
+-XX:MaxGCPauseMillis=200
+-XX:G1HeapWastePercent=5
+-XX:G1MixedGCCountTarget=8
+-XX:G1MixedGCLiveThresholdPercent=85
+
+# GC logging
+-Xlog:gc*,gc+age=trace,safepoint:gc.log:utctime,pid,tid,level,tags
+-XX:+UseGCLogFileRotation
+-XX:NumberOfGCLogFiles=32
+-XX:GCLogFileSize=64m
+
+# Performance settings
+-XX:+UnlockDiagnosticVMOptions
+-XX:+UseCondCardMark
+-XX:+UseTLAB
+-XX:+ResizeTLAB
+-XX:+UseNUMA
+-XX:+PerfDisableSharedMem
+
+# Memory settings
+-XX:+HeapDumpOnOutOfMemoryError
+-XX:HeapDumpPath=/usr/share/opensearch/logs/heapdump.hprof
+-XX:+ExitOnOutOfMemoryError
+
+# Network settings
+-Djava.net.preferIPv4Stack=true
+-Dfile.encoding=UTF-8
+
+# OpenSearch specific
+-Des.path.home=/usr/share/opensearch
+-Des.path.conf=/usr/share/opensearch/config
+-Des.distribution.flavor=default
+-Des.distribution.type=tar
+-Des.bundled_jdk=true
+
+# Security settings
+-Djava.security.policy=file:///usr/share/opensearch/config/opensearch.policy
+-Djava.security.manager=default
+
+# Disable assertions for performance
+-da
+
+# Temporary directory
+-Djava.io.tmpdir=/tmp
+
+# Locale settings
+-Duser.country=US
+-Duser.language=en
+
+# Log4j settings
+-Dlog4j2.disable.jmx=true
+-Dlog4j.shutdownHookEnabled=false
+-Dlog4j2.formatMsgNoLookups=true
+
+# JVM bug workarounds
+-XX:+UnlockDiagnosticVMOptions
+-XX:+LogVMOutput
+-XX:LogFile=/usr/share/opensearch/logs/jvm.log
+
+# Vector search optimizations
+-Djava.library.path=/usr/share/opensearch/lib
+-Djna.library.path=/usr/share/opensearch/lib
+
+# Performance monitoring
+-XX:+PrintStringDeduplicationStatistics

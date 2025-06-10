@@ -1,0 +1,50 @@
+apiVersion: 1
+
+datasources:
+  # VictoriaMetrics datasource for Database Benchmarking Platform metrics
+  - name: VictoriaMetrics
+    type: prometheus
+    access: proxy
+    url: http://victoriametrics:8428
+    isDefault: true
+    editable: true
+    jsonData:
+      timeInterval: "5s"
+      queryTimeout: "60s"
+      httpMethod: "POST"
+    secureJsonData: {}
+
+  # VictoriaMetrics InfluxDB interface for additional metrics
+  - name: VictoriaMetrics-InfluxDB
+    type: influxdb
+    access: proxy
+    url: http://victoriametrics:8089
+    database: "metrics"
+    isDefault: false
+    editable: true
+    jsonData:
+      timeInterval: "10s"
+    secureJsonData: {}
+
+  # VictoriaMetrics Graphite interface for legacy metrics
+  - name: VictoriaMetrics-Graphite
+    type: graphite
+    access: proxy
+    url: http://victoriametrics:2003
+    isDefault: false
+    editable: true
+    jsonData:
+      graphiteVersion: "1.1"
+      timeInterval: "10s"
+    secureJsonData: {}
+
+  # Node Exporter for system metrics
+  - name: Node Exporter
+    type: prometheus
+    access: proxy
+    url: http://node-exporter:9100
+    isDefault: false
+    editable: true
+    jsonData:
+      timeInterval: "15s"
+    secureJsonData: {}

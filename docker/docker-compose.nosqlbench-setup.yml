@@ -1,0 +1,224 @@
+version: '3.8'
+
+# Updated to use nosqlbench/nosqlbench:5.21.8-preview which includes OpenSearch and Presto/Trino drivers
+# This eliminates the need for custom builds and local nb5 commands
+
+services:
+  # NoSQLBench Setup - Cassandra SAI Workload
+  nb-setup-cassandra-sai:
+    image: nosqlbench/nosqlbench:5.21.8-preview
+    container_name: nb-setup-cassandra-sai
+    volumes:
+      - ../demo_workloads:/workloads
+      - ../results:/results
+      - ./nosqlbench/scripts:/scripts
+    environment:
+      - CASSANDRA_HOST=${CASSANDRA_HOST:-cassandra}
+      - CASSANDRA_PORT=${CASSANDRA_PORT:-9042}
+      - CASSANDRA_LOCALDC=${CASSANDRA_LOCALDC:-datacenter1}
+      - SETUP_TIMEOUT=${SETUP_TIMEOUT:-600}
+    command: >
+      bash -c "
+        echo 'Waiting for Cassandra to be ready...' &&
+        timeout ${SETUP_TIMEOUT:-600} bash -c 'until nc -z ${CASSANDRA_HOST:-cassandra} ${CASSANDRA_PORT:-9042}; do sleep 5; done' &&
+        echo 'Running SAI setup phases...' &&
+        nb5 /workloads/sai_longrun.yaml setup.schema driver=cql host=${CASSANDRA_HOST:-cassandra} port=${CASSANDRA_PORT:-9042} localdc=${CASSANDRA_LOCALDC:-datacenter1} &&
+        nb5 /workloads/sai_longrun.yaml setup.rampup driver=cql host=${CASSANDRA_HOST:-cassandra} port=${CASSANDRA_PORT:-9042} localdc=${CASSANDRA_LOCALDC:-datacenter1} threads=auto cycles=10000 &&
+        echo 'SAI setup completed successfully'
+      "
+    networks:
+      - nosqlbench-network
+    depends_on:
+      - cassandra
+    restart: "no"
+    profiles:
+      - setup
+
+  # NoSQLBench Setup - Cassandra LWT Workload
+  nb-setup-cassandra-lwt:
+    image: nosqlbench/nosqlbench:5.21.8-preview
+    container_name: nb-setup-cassandra-lwt
+    volumes:
+      - ../demo_workloads:/workloads
+      - ../results:/results
+      - ./nosqlbench/scripts:/scripts
+    environment:
+      - CASSANDRA_HOST=${CASSANDRA_HOST:-cassandra}
+      - CASSANDRA_PORT=${CASSANDRA_PORT:-9042}
+      - CASSANDRA_LOCALDC=${CASSANDRA_LOCALDC:-datacenter1}
+      - SETUP_TIMEOUT=${SETUP_TIMEOUT:-600}
+    command: >
+      bash -c "
+        echo 'Waiting for Cassandra to be ready...' &&
+        timeout ${SETUP_TIMEOUT:-600} bash -c 'until nc -z ${CASSANDRA_HOST:-cassandra} ${CASSANDRA_PORT:-9042}; do sleep 5; done' &&
+        echo 'Running LWT setup phases...' &&
+        nb5 /workloads/lwt_longrun.yaml setup.schema driver=cql host=${CASSANDRA_HOST:-cassandra} port=${CASSANDRA_PORT:-9042} localdc=${CASSANDRA_LOCALDC:-datacenter1} &&
+        nb5 /workloads/lwt_longrun.yaml setup.truncating driver=cql host=${CASSANDRA_HOST:-cassandra} port=${CASSANDRA_PORT:-9042} localdc=${CASSANDRA_LOCALDC:-datacenter1} threads=1 &&
+        nb5 /workloads/lwt_longrun.yaml setup.sharding driver=cql host=${CASSANDRA_HOST:-cassandra} port=${CASSANDRA_PORT:-9042} localdc=${CASSANDRA_LOCALDC:-datacenter1} threads=8 cycles=80 &&
+        nb5 /workloads/lwt_longrun.yaml setup.lwt_load driver=cql host=${CASSANDRA_HOST:-cassandra} port=${CASSANDRA_PORT:-9042} localdc=${CASSANDRA_LOCALDC:-datacenter1} threads=auto cycles=100000 &&
+        echo 'LWT setup completed successfully'
+      "
+    networks:
+      - nosqlbench-network
+    depends_on:
+      - cassandra
+    restart: "no"
+    profiles:
+      - setup
+
+  # NoSQLBench Setup - OpenSearch Basic Workload
+  nb-setup-opensearch-basic:
+    image: nosqlbench/nosqlbench:5.21.8-preview
+    container_name: nb-setup-opensearch-basic
+    volumes:
+      - ../demo_workloads:/workloads
+      - ../results:/results
+      - ./nosqlbench/scripts:/scripts
+    environment:
+      - OPENSEARCH_HOST=${OPENSEARCH_HOST:-opensearch}
+      - OPENSEARCH_PORT=${OPENSEARCH_PORT:-9200}
+      - SETUP_TIMEOUT=${SETUP_TIMEOUT:-600}
+    command: >
+      bash -c "
+        echo 'Waiting for OpenSearch to be ready...' &&
+        timeout ${SETUP_TIMEOUT:-600} bash -c 'until curl -f http://${OPENSEARCH_HOST:-opensearch}:${OPENSEARCH_PORT:-9200}/_cluster/health; do sleep 5; done' &&
+        echo 'Running OpenSearch Basic setup phases...' &&
+        nb5 /workloads/opensearch_basic_longrun.yaml default.pre_cleanup driver=opensearch host=${OPENSEARCH_HOST:-opensearch} port=${OPENSEARCH_PORT:-9200} &&
+        nb5 /workloads/opensearch_basic_longrun.yaml default.schema driver=opensearch host=${OPENSEARCH_HOST:-opensearch} port=${OPENSEARCH_PORT:-9200} &&
+        nb5 /workloads/opensearch_basic_longrun.yaml default.rampup driver=opensearch host=${OPENSEARCH_HOST:-opensearch} port=${OPENSEARCH_PORT:-9200} threads=10 cycles=1000 &&
+        echo 'OpenSearch Basic setup completed successfully'
+      "
+    networks:
+      - nosqlbench-network
+    depends_on:
+      - opensearch
+    restart: "no"
+    profiles:
+      - setup
+
+  # NoSQLBench Setup - OpenSearch Vector Search Workload
+  nb-setup-opensearch-vector:
+    image: nosqlbench/nosqlbench:5.21.8-preview
+    container_name: nb-setup-opensearch-vector
+    volumes:
+      - ../demo_workloads:/workloads
+      - ../results:/results
+      - ./nosqlbench/scripts:/scripts
+    environment:
+      - OPENSEARCH_HOST=${OPENSEARCH_HOST:-opensearch}
+      - OPENSEARCH_PORT=${OPENSEARCH_PORT:-9200}
+      - SETUP_TIMEOUT=${SETUP_TIMEOUT:-600}
+    command: >
+      bash -c "
+        echo 'Waiting for OpenSearch to be ready...' &&
+        timeout ${SETUP_TIMEOUT:-600} bash -c 'until curl -f http://${OPENSEARCH_HOST:-opensearch}:${OPENSEARCH_PORT:-9200}/_cluster/health; do sleep 5; done' &&
+        echo 'Running OpenSearch Vector setup phases...' &&
+        nb5 /workloads/opensearch_vector_search_longrun.yaml default.pre_cleanup driver=opensearch host=${OPENSEARCH_HOST:-opensearch} port=${OPENSEARCH_PORT:-9200} &&
+        nb5 /workloads/opensearch_vector_search_longrun.yaml default.schema driver=opensearch host=${OPENSEARCH_HOST:-opensearch} port=${OPENSEARCH_PORT:-9200} &&
+        nb5 /workloads/opensearch_vector_search_longrun.yaml default.rampup driver=opensearch host=${OPENSEARCH_HOST:-opensearch} port=${OPENSEARCH_PORT:-9200} threads=5 cycles=1000 &&
+        echo 'OpenSearch Vector setup completed successfully'
+      "
+    networks:
+      - nosqlbench-network
+    depends_on:
+      - opensearch
+    restart: "no"
+    profiles:
+      - setup
+
+  # NoSQLBench Setup - OpenSearch Bulk Workload
+  nb-setup-opensearch-bulk:
+    image: nosqlbench/nosqlbench:5.21.8-preview
+    container_name: nb-setup-opensearch-bulk
+    volumes:
+      - ../demo_workloads:/workloads
+      - ../results:/results
+      - ./nosqlbench/scripts:/scripts
+    environment:
+      - OPENSEARCH_HOST=${OPENSEARCH_HOST:-opensearch}
+      - OPENSEARCH_PORT=${OPENSEARCH_PORT:-9200}
+      - SETUP_TIMEOUT=${SETUP_TIMEOUT:-600}
+    command: >
+      bash -c "
+        echo 'Waiting for OpenSearch to be ready...' &&
+        timeout ${SETUP_TIMEOUT:-600} bash -c 'until curl -f http://${OPENSEARCH_HOST:-opensearch}:${OPENSEARCH_PORT:-9200}/_cluster/health; do sleep 5; done' &&
+        echo 'Running OpenSearch Bulk setup phases...' &&
+        nb5 /workloads/opensearch_bulk_longrun.yaml default.pre_cleanup driver=opensearch host=${OPENSEARCH_HOST:-opensearch} port=${OPENSEARCH_PORT:-9200} &&
+        nb5 /workloads/opensearch_bulk_longrun.yaml default.schema driver=opensearch host=${OPENSEARCH_HOST:-opensearch} port=${OPENSEARCH_PORT:-9200} &&
+        nb5 /workloads/opensearch_bulk_longrun.yaml default.bulk_load driver=opensearch host=${OPENSEARCH_HOST:-opensearch} port=${OPENSEARCH_PORT:-9200} threads=5 cycles=10000 &&
+        echo 'OpenSearch Bulk setup completed successfully'
+      "
+    networks:
+      - nosqlbench-network
+    depends_on:
+      - opensearch
+    restart: "no"
+    profiles:
+      - setup
+
+  # NoSQLBench Setup - Presto Analytics Workload
+  nb-setup-presto-analytics:
+    image: nosqlbench/nosqlbench:5.21.8-preview
+    container_name: nb-setup-presto-analytics
+    volumes:
+      - ../demo_workloads:/workloads
+      - ../results:/results
+      - ./nosqlbench/scripts:/scripts
+    environment:
+      - PRESTO_HOST=${PRESTO_HOST:-presto}
+      - PRESTO_PORT=${PRESTO_PORT:-8080}
+      - PRESTO_USER=${PRESTO_USER:-testuser}
+      - SETUP_TIMEOUT=${SETUP_TIMEOUT:-600}
+    command: >
+      bash -c "
+        echo 'Waiting for Presto to be ready...' &&
+        timeout ${SETUP_TIMEOUT:-600} bash -c 'until curl -f http://${PRESTO_HOST:-presto}:${PRESTO_PORT:-8080}/v1/info; do sleep 5; done' &&
+        echo 'Running Presto Analytics setup phases...' &&
+        nb5 /workloads/jdbc_analytics_longrun.yaml default.drop dburl=jdbc:presto://${PRESTO_HOST:-presto}:${PRESTO_PORT:-8080}/memory?user=${PRESTO_USER:-testuser} use_hikaricp=true &&
+        nb5 /workloads/jdbc_analytics_longrun.yaml default.schema dburl=jdbc:presto://${PRESTO_HOST:-presto}:${PRESTO_PORT:-8080}/memory?user=${PRESTO_USER:-testuser} use_hikaricp=true &&
+        nb5 /workloads/jdbc_analytics_longrun.yaml default.rampup dburl=jdbc:presto://${PRESTO_HOST:-presto}:${PRESTO_PORT:-8080}/memory?user=${PRESTO_USER:-testuser} use_hikaricp=true threads=10 cycles=5000 &&
+        echo 'Presto Analytics setup completed successfully'
+      "
+    networks:
+      - nosqlbench-network
+    depends_on:
+      - presto
+    restart: "no"
+    profiles:
+      - setup
+
+  # NoSQLBench Setup - Presto E-commerce Workload
+  nb-setup-presto-ecommerce:
+    image: nosqlbench/nosqlbench:5.21.8-preview
+    container_name: nb-setup-presto-ecommerce
+    volumes:
+      - ../demo_workloads:/workloads
+      - ../results:/results
+      - ./nosqlbench/scripts:/scripts
+    environment:
+      - PRESTO_HOST=${PRESTO_HOST:-presto}
+      - PRESTO_PORT=${PRESTO_PORT:-8080}
+      - PRESTO_USER=${PRESTO_USER:-testuser}
+      - SETUP_TIMEOUT=${SETUP_TIMEOUT:-600}
+    command: >
+      bash -c "
+        echo 'Waiting for Presto to be ready...' &&
+        timeout ${SETUP_TIMEOUT:-600} bash -c 'until curl -f http://${PRESTO_HOST:-presto}:${PRESTO_PORT:-8080}/v1/info; do sleep 5; done' &&
+        echo 'Running Presto E-commerce setup phases...' &&
+        nb5 /workloads/jdbc_ecommerce_longrun.yaml default.drop dburl=jdbc:presto://${PRESTO_HOST:-presto}:${PRESTO_PORT:-8080}/memory?user=${PRESTO_USER:-testuser} use_hikaricp=true &&
+        nb5 /workloads/jdbc_ecommerce_longrun.yaml default.schema dburl=jdbc:presto://${PRESTO_HOST:-presto}:${PRESTO_PORT:-8080}/memory?user=${PRESTO_USER:-testuser} use_hikaricp=true &&
+        nb5 /workloads/jdbc_ecommerce_longrun.yaml default.rampup dburl=jdbc:presto://${PRESTO_HOST:-presto}:${PRESTO_PORT:-8080}/memory?user=${PRESTO_USER:-testuser} use_hikaricp=true threads=5 cycles=5000 &&
+        echo 'Presto E-commerce setup completed successfully'
+      "
+    networks:
+      - nosqlbench-network
+    depends_on:
+      - presto
+    restart: "no"
+    profiles:
+      - setup
+
+networks:
+  nosqlbench-network:
+    external: true
+    name: nosqlbench-databases

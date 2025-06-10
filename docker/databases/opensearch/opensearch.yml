@@ -1,0 +1,91 @@
+# OpenSearch configuration optimized for NoSQLBench testing
+
+cluster.name: nosqlbench-cluster
+node.name: opensearch-node1
+
+# Network settings
+network.host: 0.0.0.0
+http.port: 9200
+transport.port: 9300
+
+# Discovery settings for single node
+discovery.type: single-node
+cluster.initial_master_nodes: ["opensearch-node1"]
+
+# Path settings
+path.data: /usr/share/opensearch/data
+path.logs: /usr/share/opensearch/logs
+
+# Memory settings
+bootstrap.memory_lock: true
+
+# Security settings (disabled for testing)
+plugins.security.disabled: true
+plugins.security.ssl.transport.enforce_hostname_verification: false
+plugins.security.ssl.http.enabled: false
+
+# Performance settings
+thread_pool.write.queue_size: 1000
+thread_pool.search.queue_size: 1000
+indices.memory.index_buffer_size: 20%
+indices.memory.min_index_buffer_size: 96mb
+
+# Indexing settings
+indices.store.throttle.type: none
+index.refresh_interval: 30s
+index.translog.flush_threshold_size: 1gb
+index.translog.sync_interval: 30s
+
+# Search settings
+search.max_buckets: 65536
+indices.query.bool.max_clause_count: 10000
+
+# Circuit breaker settings
+indices.breaker.total.limit: 70%
+indices.breaker.fielddata.limit: 40%
+indices.breaker.request.limit: 40%
+
+# Cluster settings
+cluster.routing.allocation.disk.threshold_enabled: true
+cluster.routing.allocation.disk.watermark.low: 85%
+cluster.routing.allocation.disk.watermark.high: 90%
+cluster.routing.allocation.disk.watermark.flood_stage: 95%
+
+# Logging
+logger.level: INFO
+logger.org.opensearch.discovery: DEBUG
+
+# Action settings
+action.auto_create_index: true
+action.destructive_requires_name: false
+
+# HTTP settings
+http.max_content_length: 100mb
+http.compression: true
+http.cors.enabled: true
+http.cors.allow-origin: "*"
+http.cors.allow-methods: OPTIONS, HEAD, GET, POST, PUT, DELETE
+http.cors.allow-headers: X-Requested-With,X-Auth-Token,Content-Type,Content-Length
+
+# Node settings
+node.master: true
+node.data: true
+node.ingest: true
+node.ml: false
+
+# Index settings
+index.number_of_shards: 1
+index.number_of_replicas: 0
+index.max_result_window: 100000
+
+# Vector search settings (for vector workloads)
+knn.algo_param.ef_search: 512
+knn.algo_param.ef_construction: 512
+knn.memory.circuit_breaker.enabled: true
+knn.memory.circuit_breaker.limit: 50%
+
+# Monitoring settings
+monitor.jvm.gc.enabled: true
+monitor.process.enabled: true
+monitor.os.enabled: true
+monitor.fs.enabled: true

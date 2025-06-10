@@ -1,0 +1,316 @@
+version: '3.8'
+
+# Updated to use nosqlbench/nosqlbench:5.21.8-preview which includes OpenSearch and Presto/Trino drivers
+# This eliminates the need for custom builds and local nb5 commands
+
+services:
+  # NoSQLBench Run - Cassandra SAI Workload
+  nb-run-cassandra-sai:
+    image: nosqlbench/nosqlbench:5.21.8-preview
+    container_name: nb-run-cassandra-sai
+    volumes:
+      - ../demo_workloads:/workloads
+      - ../results:/results
+      - ./nosqlbench/scripts:/scripts
+    environment:
+      - CASSANDRA_HOST=${CASSANDRA_HOST:-cassandra}
+      - CASSANDRA_PORT=${CASSANDRA_PORT:-9042}
+      - CASSANDRA_LOCALDC=${CASSANDRA_LOCALDC:-datacenter1}
+      - SAI_THROUGHPUT=${SAI_THROUGHPUT:-1000}
+      - SAI_THREADS=${SAI_THREADS:-auto}
+      - SAI_CYCLES=${SAI_CYCLES:-3000000000}
+      - METRICS_ENDPOINT=${METRICS_ENDPOINT:-http://victoriametrics:8428}
+    command: >
+      bash -c "
+        echo 'Starting SAI benchmark run...' &&
+        nb5 /workloads/sai_longrun.yaml sai_reads_test.sai_reads 
+        driver=cql 
+        host=${CASSANDRA_HOST:-cassandra} 
+        port=${CASSANDRA_PORT:-9042} 
+        localdc=${CASSANDRA_LOCALDC:-datacenter1} 
+        threads=${SAI_THREADS:-auto} 
+        cycles=${SAI_CYCLES:-3000000000} 
+        cyclerate=${SAI_THROUGHPUT:-1000}
+        ts_window=10 
+        prior_inserts=10000 
+        price_window=10
+        --report-csv-to /results/sai-metrics.csv
+        --report-interval 10s
+        --progress console:1s
+        --log-histograms /results/sai-histograms.log
+        --log-histostats /results/sai-histostats.log
+        --metrics-prefix 'nosqlbench.sai'
+        --docker-metrics
+      "
+    networks:
+      - nosqlbench-network
+    depends_on:
+      - cassandra
+      - victoriametrics
+    restart: "no"
+    profiles:
+      - run
+
+  # NoSQLBench Run - Cassandra LWT Workload
+  nb-run-cassandra-lwt:
+    image: nosqlbench/nosqlbench:5.21.8-preview
+    container_name: nb-run-cassandra-lwt
+    volumes:
+      - ../demo_workloads:/workloads
+      - ../results:/results
+      - ./nosqlbench/scripts:/scripts
+    environment:
+      - CASSANDRA_HOST=${CASSANDRA_HOST:-cassandra}
+      - CASSANDRA_PORT=${CASSANDRA_PORT:-9042}
+      - CASSANDRA_LOCALDC=${CASSANDRA_LOCALDC:-datacenter1}
+      - LWT_THROUGHPUT=${LWT_THROUGHPUT:-500}
+      - LWT_THREADS=${LWT_THREADS:-auto}
+      - LWT_CYCLES=${LWT_CYCLES:-3000000000}
+      - METRICS_ENDPOINT=${METRICS_ENDPOINT:-http://victoriametrics:8428}
+    command: >
+      bash -c "
+        echo 'Starting LWT benchmark run...' &&
+        nb5 /workloads/lwt_longrun.yaml lwt-updates.lwt_live_update 
+        driver=cql 
+        host=${CASSANDRA_HOST:-cassandra} 
+        port=${CASSANDRA_PORT:-9042} 
+        localdc=${CASSANDRA_LOCALDC:-datacenter1} 
+        threads=${LWT_THREADS:-auto} 
+        cycles=${LWT_CYCLES:-3000000000} 
+        cyclerate=${LWT_THROUGHPUT:-500}
+        shard_range_size=80 
+        max_rounds=3 
+        max_tasks=225 
+        stride_constant=1 
+        shard_offset=0
+        --report-csv-to /results/lwt-metrics.csv
+        --report-interval 10s
+        --progress console:1s
+        --log-histograms /results/lwt-histograms.log
+        --log-histostats /results/lwt-histostats.log
+        --metrics-prefix 'nosqlbench.lwt'
+        --docker-metrics
+      "
+    networks:
+      - nosqlbench-network
+    depends_on:
+      - cassandra
+      - victoriametrics
+    restart: "no"
+    profiles:
+      - run
+
+  # NoSQLBench Run - OpenSearch Basic Workload
+  nb-run-opensearch-basic:
+    image: nosqlbench/nosqlbench:5.21.8-preview
+    container_name: nb-run-opensearch-basic
+    volumes:
+      - ../demo_workloads:/workloads
+      - ../results:/results
+      - ./nosqlbench/scripts:/scripts
+    environment:
+      - OPENSEARCH_HOST=${OPENSEARCH_HOST:-opensearch}
+      - OPENSEARCH_PORT=${OPENSEARCH_PORT:-9200}
+      - OPENSEARCH_BASIC_THROUGHPUT=${OPENSEARCH_BASIC_THROUGHPUT:-2000}
+      - OPENSEARCH_BASIC_THREADS=${OPENSEARCH_BASIC_THREADS:-5}
+      - OPENSEARCH_BASIC_CYCLES=${OPENSEARCH_BASIC_CYCLES:-3000000000}
+      - METRICS_ENDPOINT=${METRICS_ENDPOINT:-http://victoriametrics:8428}
+    command: >
+      bash -c "
+        echo 'Starting OpenSearch Basic benchmark run...' &&
+        nb5 /workloads/opensearch_basic_longrun.yaml default.search 
+        driver=opensearch 
+        host=${OPENSEARCH_HOST:-opensearch} 
+        port=${OPENSEARCH_PORT:-9200} 
+        threads=${OPENSEARCH_BASIC_THREADS:-5} 
+        cycles=${OPENSEARCH_BASIC_CYCLES:-3000000000} 
+        cyclerate=${OPENSEARCH_BASIC_THROUGHPUT:-2000}
+        --report-csv-to /results/opensearch-basic-metrics.csv
+        --report-interval 10s
+        --progress console:1s
+        --log-histograms /results/opensearch-basic-histograms.log
+        --log-histostats /results/opensearch-basic-histostats.log
+        --metrics-prefix 'nosqlbench.opensearch.basic'
+        --docker-metrics
+      "
+    networks:
+      - nosqlbench-network
+    depends_on:
+      - opensearch
+      - victoriametrics
+    restart: "no"
+    profiles:
+      - run
+
+  # NoSQLBench Run - OpenSearch Vector Search Workload
+  nb-run-opensearch-vector:
+    image: nosqlbench/nosqlbench:5.21.8-preview
+    container_name: nb-run-opensearch-vector
+    volumes:
+      - ../demo_workloads:/workloads
+      - ../results:/results
+      - ./nosqlbench/scripts:/scripts
+    environment:
+      - OPENSEARCH_HOST=${OPENSEARCH_HOST:-opensearch}
+      - OPENSEARCH_PORT=${OPENSEARCH_PORT:-9200}
+      - OPENSEARCH_VECTOR_THROUGHPUT=${OPENSEARCH_VECTOR_THROUGHPUT:-1000}
+      - OPENSEARCH_VECTOR_THREADS=${OPENSEARCH_VECTOR_THREADS:-3}
+      - OPENSEARCH_VECTOR_CYCLES=${OPENSEARCH_VECTOR_CYCLES:-3000000000}
+      - METRICS_ENDPOINT=${METRICS_ENDPOINT:-http://victoriametrics:8428}
+    command: >
+      bash -c "
+        echo 'Starting OpenSearch Vector benchmark run...' &&
+        nb5 /workloads/opensearch_vector_search_longrun.yaml default.search 
+        driver=opensearch 
+        host=${OPENSEARCH_HOST:-opensearch} 
+        port=${OPENSEARCH_PORT:-9200} 
+        threads=${OPENSEARCH_VECTOR_THREADS:-3} 
+        cycles=${OPENSEARCH_VECTOR_CYCLES:-3000000000} 
+        cyclerate=${OPENSEARCH_VECTOR_THROUGHPUT:-1000}
+        --report-csv-to /results/opensearch-vector-metrics.csv
+        --report-interval 10s
+        --progress console:1s
+        --log-histograms /results/opensearch-vector-histograms.log
+        --log-histostats /results/opensearch-vector-histostats.log
+        --metrics-prefix 'nosqlbench.opensearch.vector'
+        --docker-metrics
+      "
+    networks:
+      - nosqlbench-network
+    depends_on:
+      - opensearch
+      - victoriametrics
+    restart: "no"
+    profiles:
+      - run
+
+  # NoSQLBench Run - OpenSearch Bulk Workload
+  nb-run-opensearch-bulk:
+    image: nosqlbench/nosqlbench:5.21.8-preview
+    container_name: nb-run-opensearch-bulk
+    volumes:
+      - ../demo_workloads:/workloads
+      - ../results:/results
+      - ./nosqlbench/scripts:/scripts
+    environment:
+      - OPENSEARCH_HOST=${OPENSEARCH_HOST:-opensearch}
+      - OPENSEARCH_PORT=${OPENSEARCH_PORT:-9200}
+      - OPENSEARCH_BULK_THROUGHPUT=${OPENSEARCH_BULK_THROUGHPUT:-1500}
+      - OPENSEARCH_BULK_THREADS=${OPENSEARCH_BULK_THREADS:-2}
+      - OPENSEARCH_BULK_CYCLES=${OPENSEARCH_BULK_CYCLES:-3000000000}
+      - METRICS_ENDPOINT=${METRICS_ENDPOINT:-http://victoriametrics:8428}
+    command: >
+      bash -c "
+        echo 'Starting OpenSearch Bulk benchmark run...' &&
+        nb5 /workloads/opensearch_bulk_longrun.yaml default.verify
+        driver=opensearch
+        host=${OPENSEARCH_HOST:-opensearch}
+        port=${OPENSEARCH_PORT:-9200}
+        threads=${OPENSEARCH_BULK_THREADS:-2}
+        cycles=${OPENSEARCH_BULK_CYCLES:-3000000000}
+        cyclerate=${OPENSEARCH_BULK_THROUGHPUT:-1500}
+        --report-csv-to /results/opensearch-bulk-metrics.csv
+        --report-interval 10s
+        --progress console:1s
+        --log-histograms /results/opensearch-bulk-histograms.log
+        --log-histostats /results/opensearch-bulk-histostats.log
+        --metrics-prefix 'nosqlbench.opensearch.bulk'
+        --docker-metrics
+      "
+    networks:
+      - nosqlbench-network
+    depends_on:
+      - opensearch
+      - victoriametrics
+    restart: "no"
+    profiles:
+      - run
+
+  # NoSQLBench Run - Presto Analytics Workload
+  nb-run-presto-analytics:
+    image: nosqlbench/nosqlbench:5.21.8-preview
+    container_name: nb-run-presto-analytics
+    volumes:
+      - ../demo_workloads:/workloads
+      - ../results:/results
+      - ./nosqlbench/scripts:/scripts
+    environment:
+      - PRESTO_HOST=${PRESTO_HOST:-presto}
+      - PRESTO_PORT=${PRESTO_PORT:-8080}
+      - PRESTO_USER=${PRESTO_USER:-testuser}
+      - PRESTO_ANALYTICS_THROUGHPUT=${PRESTO_ANALYTICS_THROUGHPUT:-100}
+      - PRESTO_ANALYTICS_THREADS=${PRESTO_ANALYTICS_THREADS:-5}
+      - PRESTO_ANALYTICS_CYCLES=${PRESTO_ANALYTICS_CYCLES:-3000000000}
+      - METRICS_ENDPOINT=${METRICS_ENDPOINT:-http://victoriametrics:8428}
+    command: >
+      bash -c "
+        echo 'Starting Presto Analytics benchmark run...' &&
+        nb5 /workloads/jdbc_analytics_longrun.yaml default.analytics
+        dburl=jdbc:presto://${PRESTO_HOST:-presto}:${PRESTO_PORT:-8080}/memory?user=${PRESTO_USER:-testuser}
+        use_hikaricp=true
+        threads=${PRESTO_ANALYTICS_THREADS:-5}
+        cycles=${PRESTO_ANALYTICS_CYCLES:-3000000000}
+        cyclerate=${PRESTO_ANALYTICS_THROUGHPUT:-100}
+        --report-csv-to /results/presto-analytics-metrics.csv
+        --report-interval 10s
+        --progress console:1s
+        --log-histograms /results/presto-analytics-histograms.log
+        --log-histostats /results/presto-analytics-histostats.log
+        --metrics-prefix 'nosqlbench.presto.analytics'
+        --docker-metrics
+      "
+    networks:
+      - nosqlbench-network
+    depends_on:
+      - presto
+      - victoriametrics
+    restart: "no"
+    profiles:
+      - run
+
+  # NoSQLBench Run - Presto E-commerce Workload
+  nb-run-presto-ecommerce:
+    image: nosqlbench/nosqlbench:5.21.8-preview
+    container_name: nb-run-presto-ecommerce
+    volumes:
+      - ../demo_workloads:/workloads
+      - ../results:/results
+      - ./nosqlbench/scripts:/scripts
+    environment:
+      - PRESTO_HOST=${PRESTO_HOST:-presto}
+      - PRESTO_PORT=${PRESTO_PORT:-8080}
+      - PRESTO_USER=${PRESTO_USER:-testuser}
+      - PRESTO_ECOMMERCE_THROUGHPUT=${PRESTO_ECOMMERCE_THROUGHPUT:-200}
+      - PRESTO_ECOMMERCE_THREADS=${PRESTO_ECOMMERCE_THREADS:-3}
+      - PRESTO_ECOMMERCE_CYCLES=${PRESTO_ECOMMERCE_CYCLES:-3000000000}
+      - METRICS_ENDPOINT=${METRICS_ENDPOINT:-http://victoriametrics:8428}
+    command: >
+      bash -c "
+        echo 'Starting Presto E-commerce benchmark run...' &&
+        nb5 /workloads/jdbc_ecommerce_longrun.yaml default.transactions
+        dburl=jdbc:presto://${PRESTO_HOST:-presto}:${PRESTO_PORT:-8080}/memory?user=${PRESTO_USER:-testuser}
+        use_hikaricp=true
+        threads=${PRESTO_ECOMMERCE_THREADS:-3}
+        cycles=${PRESTO_ECOMMERCE_CYCLES:-3000000000}
+        cyclerate=${PRESTO_ECOMMERCE_THROUGHPUT:-200}
+        --report-csv-to /results/presto-ecommerce-metrics.csv
+        --report-interval 10s
+        --progress console:1s
+        --log-histograms /results/presto-ecommerce-histograms.log
+        --log-histostats /results/presto-ecommerce-histostats.log
+        --metrics-prefix 'nosqlbench.presto.ecommerce'
+        --docker-metrics
+      "
+    networks:
+      - nosqlbench-network
+    depends_on:
+      - presto
+      - victoriametrics
+    restart: "no"
+    profiles:
+      - run
+
+networks:
+  nosqlbench-network:
+    external: true
+    name: nosqlbench-databases

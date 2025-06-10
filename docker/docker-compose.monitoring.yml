@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  # VictoriaMetrics - Time series database for NoSQLBench metrics (matching Flask app setup)
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:latest
+    container_name: monitoring-victoriametrics
+    ports:
+      - "${VICTORIAMETRICS_PORT:-8428}:8428"
+      - "${VICTORIAMETRICS_INFLUX_PORT:-8089}:8089"  # InfluxDB protocol
+      - "${VICTORIAMETRICS_GRAPHITE_PORT:-2003}:2003"  # Graphite protocol
+    command:
+      - "--storageDataPath=/victoria-metrics-data"
+      - "--httpListenAddr=:8428"
+      - "--influxListenAddr=:8089"
+      - "--graphiteListenAddr=:2003"
+      - "--retentionPeriod=1w"
+      - "--maxConcurrentInserts=16"
+      - "--search.maxQueryDuration=30m"
+      - "--search.maxConcurrentRequests=8"
+    volumes:
+      - victoriametrics-data:/victoria-metrics-data
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8428/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - monitoring-network
+    restart: unless-stopped
+
+
+
+  # Grafana - Visualization and dashboards (matching Flask app setup)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: monitoring-grafana
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"  # Changed to 3001 to match Flask app
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource,grafana-piechart-panel
+      - GF_FEATURE_TOGGLES_ENABLE=publicDashboards
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/provisioning/dashboards/database-benchmarking-overview.json
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      victoriametrics:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - monitoring-network
+    restart: unless-stopped
+
+  # Prometheus Node Exporter for system metrics
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: monitoring-node-exporter
+    ports:
+      - "${NODE_EXPORTER_PORT:-9100}:9100"
+    command:
+      - '--path.rootfs=/host'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /:/host:ro,rslave
+    networks:
+      - monitoring-network
+    restart: unless-stopped
+
+volumes:
+  victoriametrics-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+networks:
+  monitoring-network:
+    driver: bridge
+    name: nosqlbench-monitoring

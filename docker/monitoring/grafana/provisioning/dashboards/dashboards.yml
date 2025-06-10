@@ -1,0 +1,35 @@
+apiVersion: 1
+
+providers:
+  # Database Benchmarking Platform dashboards
+  - name: 'database-benchmarking'
+    orgId: 1
+    folder: 'Database Benchmarking'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+
+  # NoSQLBench dashboards
+  - name: 'nosqlbench'
+    orgId: 1
+    folder: 'NoSQLBench'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+
+  # System monitoring dashboards
+  - name: 'system'
+    orgId: 1
+    folder: 'System'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards/system
