@@ -1,0 +1,99 @@
+{{/*
+This template is used by the web application to create setup jobs dynamically.
+It's not deployed directly but serves as a reference for the job specifications.
+*/}}
+
+{{- if .Values.webapp.autoSetup }}
+{{- range $workload, $config := .Values.workloads }}
+{{- if $config.enabled }}
+{{- range $phase := $config.setup_phases }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "nosqlbench-demo.fullname" $ }}-setup-{{ $workload }}-{{ $phase | replace "." "-" }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "nosqlbench-demo.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: nosqlbench
+    job-type: setup
+    workload: {{ $workload }}
+    phase: {{ $phase | replace "." "-" }}
+spec:
+  ttlSecondsAfterFinished: {{ $.Values.nosqlbench.jobs.ttlSecondsAfterFinished }}
+  backoffLimit: {{ $.Values.nosqlbench.jobs.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "nosqlbench-demo.selectorLabels" $ | nindent 8 }}
+        app.kubernetes.io/component: nosqlbench
+        job-type: setup
+        workload: {{ $workload }}
+    spec:
+      restartPolicy: {{ $.Values.nosqlbench.jobs.restartPolicy }}
+      {{- with $.Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: nosqlbench
+          securityContext:
+            {{- toYaml $.Values.securityContext | nindent 12 }}
+          image: {{ include "nosqlbench-demo.nosqlbench.image" $ }}
+          imagePullPolicy: {{ $.Values.nosqlbench.image.pullPolicy }}
+          command:
+            - "nb5"
+            - "--include=/workloads"
+            - {{ $config.file | quote }}
+            - {{ $phase | quote }}
+            {{- if eq $config.driver "cql" }}
+            - "driver=cql"
+            - "host={{ $.Values.databases.cassandra.host }}"
+            - "port={{ $.Values.databases.cassandra.port }}"
+            - "localdc={{ $.Values.databases.cassandra.localdc }}"
+            {{- if $config.keyspace }}
+            - "keyspace={{ $config.keyspace }}"
+            {{- end }}
+            {{- else if eq $config.driver "opensearch" }}
+            - "driver=opensearch"
+            - "host={{ $.Values.databases.opensearch.host }}"
+            - "port={{ $.Values.databases.opensearch.port }}"
+            {{- else if eq $config.driver "jdbc" }}
+            - "dburl=jdbc:presto://{{ $.Values.databases.presto.host }}:{{ $.Values.databases.presto.port }}/{{ $.Values.databases.presto.catalog }}?user={{ $.Values.databases.presto.user }}"
+            - "use_hikaricp=true"
+            {{- end }}
+            - "threads=auto"
+            - "errors={{ $.Values.workloads.errorsMode }}"
+            - "--report-prompush-to={{ $.Values.metrics.endpoint }}/api/v1/import/prometheus/metrics/job/nosqlbench/instance/setup-{{ $workload }}-{{ $phase }}"
+            - "--add-labels=job:nosqlbench,instance:setup-{{ $workload }}-{{ $phase }},workload:{{ $workload }},phase:{{ $phase }}"
+            - "--report-interval=10"
+          env:
+            {{- include "nosqlbench-demo.databaseEnv" $ | nindent 12 }}
+          volumeMounts:
+            - name: workloads
+              mountPath: /workloads
+              readOnly: true
+          resources:
+            {{- toYaml $.Values.nosqlbench.resources | nindent 12 }}
+      volumes:
+        - name: workloads
+          configMap:
+            name: {{ include "nosqlbench-demo.fullname" $ }}-workloads
+      {{- with $.Values.nosqlbench.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.nosqlbench.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.nosqlbench.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

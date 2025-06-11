@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nosqlbench-demo.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "nosqlbench-demo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: webapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "nosqlbench-demo.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: webapp
+  template:
+    metadata:
+      labels:
+        {{- include "nosqlbench-demo.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: webapp
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "nosqlbench-demo.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: webapp
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "nosqlbench-demo.webapp.image" . }}
+          imagePullPolicy: {{ .Values.webapp.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.webapp.service.targetPort }}
+              protocol: TCP
+          env:
+            # Flask configuration
+            - name: FLASK_DEBUG
+              value: {{ .Values.webapp.env.FLASK_DEBUG | quote }}
+            - name: SECRET_KEY
+              value: {{ .Values.webapp.env.SECRET_KEY | quote }}
+            - name: KUBERNETES_MODE
+              value: "true"
+            - name: KUBERNETES_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            - name: RELEASE_NAME
+              value: {{ .Release.Name | quote }}
+            - name: NOSQLBENCH_IMAGE
+              value: {{ include "nosqlbench-demo.nosqlbench.image" . | quote }}
+            # Database configuration
+            {{- include "nosqlbench-demo.databaseEnv" . | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+            - name: workloads
+              mountPath: /app/workloads
+              readOnly: true
+            {{- if .Values.persistence.enabled }}
+            - name: data
+              mountPath: /app/data
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.webapp.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "nosqlbench-demo.fullname" . }}-config
+        - name: workloads
+          configMap:
+            name: {{ include "nosqlbench-demo.fullname" . }}-workloads
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "nosqlbench-demo.fullname" . }}-data
+        {{- else }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+      {{- with .Values.webapp.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.webapp.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.webapp.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

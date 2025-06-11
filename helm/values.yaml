@@ -1,0 +1,183 @@
+# Default values for nosqlbench-demo
+# This is a YAML-formatted file.
+
+# Global settings
+global:
+  # Image registry settings
+  imageRegistry: ""
+  imagePullSecrets: []
+
+# Database endpoints configuration
+databases:
+  # Cassandra configuration
+  cassandra:
+    enabled: false
+    host: ""
+    port: 9042
+    localdc: "datacenter1"
+    # Optional authentication
+    username: ""
+    password: ""
+  
+  # OpenSearch configuration
+  opensearch:
+    enabled: false
+    host: ""
+    port: 9200
+    # Optional authentication
+    username: ""
+    password: ""
+  
+  # Presto/Trino configuration
+  presto:
+    enabled: false
+    host: ""
+    port: 8080
+    user: "testuser"
+    catalog: "memory"
+
+# VictoriaMetrics endpoint for metrics collection
+metrics:
+  endpoint: "http://victoriametrics.monitoring.svc.cluster.local:8428"
+
+# Web application configuration
+webapp:
+  # Container image settings
+  image:
+    registry: ""
+    repository: "nosqlbench-webapp"
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  
+  # Resource limits and requests
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 5000
+    annotations: {}
+  
+  # Ingress configuration
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: nosqlbench-demo.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+  
+  # Environment variables
+  env:
+    FLASK_DEBUG: "false"
+    SECRET_KEY: "change-me-in-production"
+  
+  # Auto-setup configuration
+  autoSetup: true
+  
+  # Node selector and tolerations
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# NoSQLBench job configuration
+nosqlbench:
+  # Container image settings
+  image:
+    registry: ""
+    repository: "nosqlbench/nosqlbench"
+    tag: "5.21.8-preview"
+    pullPolicy: IfNotPresent
+  
+  # Default resource limits for jobs
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  
+  # Job settings
+  jobs:
+    # Time to live for completed jobs (in seconds)
+    ttlSecondsAfterFinished: 3600
+    # Restart policy for jobs
+    restartPolicy: Never
+    # Backoff limit for failed jobs
+    backoffLimit: 3
+  
+  # Node selector and tolerations for jobs
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# RBAC configuration
+rbac:
+  # Create RBAC resources
+  create: true
+  # Annotations for service account
+  serviceAccountAnnotations: {}
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+# Workload configurations (will be mounted as ConfigMap)
+workloads:
+  # Default cycle rates for workloads
+  defaultCycleRate: 10
+  # Default thread configuration
+  threadsAuto: true
+  # Error handling mode
+  errorsMode: "count"
+
+# Persistence for logs and results
+persistence:
+  enabled: false
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 10Gi
+  annotations: {}
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# Monitoring and observability
+monitoring:
+  # Enable ServiceMonitor for Prometheus
+  serviceMonitor:
+    enabled: false
+    namespace: ""
+    labels: {}
+    annotations: {}
+    interval: 30s
+    scrapeTimeout: 10s
+
+# Network policies
+networkPolicy:
+  enabled: false
+  ingress: []
+  egress: []

@@ -1,0 +1,116 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nosqlbench-demo.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "nosqlbench-demo.labels" . | nindent 4 }}
+data:
+  # Application configuration
+  app-config.yaml: |
+    databases:
+      {{- if .Values.databases.cassandra.enabled }}
+      cassandra:
+        enabled: true
+        host: {{ .Values.databases.cassandra.host | quote }}
+        port: {{ .Values.databases.cassandra.port }}
+        localdc: {{ .Values.databases.cassandra.localdc | quote }}
+        {{- if .Values.databases.cassandra.username }}
+        username: {{ .Values.databases.cassandra.username | quote }}
+        {{- end }}
+      {{- else }}
+      cassandra:
+        enabled: false
+      {{- end }}
+      
+      {{- if .Values.databases.opensearch.enabled }}
+      opensearch:
+        enabled: true
+        host: {{ .Values.databases.opensearch.host | quote }}
+        port: {{ .Values.databases.opensearch.port }}
+        {{- if .Values.databases.opensearch.username }}
+        username: {{ .Values.databases.opensearch.username | quote }}
+        {{- end }}
+      {{- else }}
+      opensearch:
+        enabled: false
+      {{- end }}
+      
+      {{- if .Values.databases.presto.enabled }}
+      presto:
+        enabled: true
+        host: {{ .Values.databases.presto.host | quote }}
+        port: {{ .Values.databases.presto.port }}
+        user: {{ .Values.databases.presto.user | quote }}
+        catalog: {{ .Values.databases.presto.catalog | quote }}
+      {{- else }}
+      presto:
+        enabled: false
+      {{- end }}
+    
+    metrics:
+      endpoint: {{ .Values.metrics.endpoint | quote }}
+    
+    workloads:
+      defaultCycleRate: {{ .Values.workloads.defaultCycleRate }}
+      threadsAuto: {{ .Values.workloads.threadsAuto }}
+      errorsMode: {{ .Values.workloads.errorsMode | quote }}
+    
+    autoSetup: {{ .Values.webapp.autoSetup }}
+    
+    # Available workloads based on enabled databases
+    availableWorkloads: {{ include "nosqlbench-demo.availableWorkloads" . | quote }}
+
+  # Workload definitions (matching the Flask app config)
+  workload-definitions.yaml: |
+    workloads:
+      cassandra_sai:
+        file: 'sai_longrun.yaml'
+        setup_phases: ['setup.schema', 'setup.rampup']
+        run_phase: 'sai_reads_test.sai_reads'
+        driver: 'cql'
+        keyspace: 'sai_test'
+        enabled: {{ .Values.databases.cassandra.enabled }}
+      
+      cassandra_lwt:
+        file: 'lwt_longrun.yaml'
+        setup_phases: ['setup.schema', 'setup.truncating', 'setup.sharding', 'setup.lwt_load']
+        run_phase: 'lwt-updates.lwt_live_update'
+        driver: 'cql'
+        keyspace: 'lwt_ks'
+        enabled: {{ .Values.databases.cassandra.enabled }}
+      
+      opensearch_basic:
+        file: 'opensearch_basic_longrun.yaml'
+        setup_phases: ['default.pre_cleanup', 'default.schema', 'default.rampup']
+        run_phase: 'default.search'
+        driver: 'opensearch'
+        enabled: {{ .Values.databases.opensearch.enabled }}
+      
+      opensearch_vector:
+        file: 'opensearch_vector_search_longrun.yaml'
+        setup_phases: ['default.pre_cleanup', 'default.schema', 'default.rampup']
+        run_phase: 'default.search'
+        driver: 'opensearch'
+        enabled: {{ .Values.databases.opensearch.enabled }}
+      
+      opensearch_bulk:
+        file: 'opensearch_bulk_longrun.yaml'
+        setup_phases: ['default.pre_cleanup', 'default.schema', 'default.bulk_load']
+        run_phase: 'default.verify'
+        driver: 'opensearch'
+        enabled: {{ .Values.databases.opensearch.enabled }}
+      
+      presto_analytics:
+        file: 'jdbc_analytics_longrun.yaml'
+        setup_phases: ['default.drop', 'default.schema', 'default.rampup']
+        run_phase: 'default.analytics'
+        driver: 'jdbc'
+        enabled: {{ .Values.databases.presto.enabled }}
+      
+      presto_ecommerce:
+        file: 'jdbc_ecommerce_longrun.yaml'
+        setup_phases: ['default.drop', 'default.schema', 'default.rampup']
+        run_phase: 'default.transactions'
+        driver: 'jdbc'
+        enabled: {{ .Values.databases.presto.enabled }}

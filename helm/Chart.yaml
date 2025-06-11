@@ -1,0 +1,25 @@
+apiVersion: v2
+name: nosqlbench-demo
+description: A Helm chart for NoSQLBench workload management on Kubernetes
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+keywords:
+  - nosqlbench
+  - benchmarking
+  - database
+  - performance
+  - testing
+
+home: https://github.com/nosqlbench/nosqlbench
+sources:
+  - https://github.com/nosqlbench/nosqlbench
+
+maintainers:
+  - name: NoSQLBench Team
+    email: support@nosqlbench.io
+
+annotations:
+  category: Database
+  licenses: Apache-2.0

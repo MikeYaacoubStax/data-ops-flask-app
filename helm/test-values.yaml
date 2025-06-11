@@ -1,0 +1,139 @@
+# Test values for NoSQLBench Kubernetes Demo
+# For use with minikube and local development
+
+# Database endpoints configuration
+databases:
+  # Cassandra configuration
+  cassandra:
+    enabled: true
+    host: "3.91.36.147"
+    port: 9042
+    localdc: "datacenter1"
+    # Optional authentication (uncomment if needed)
+    # username: ""
+    # password: ""
+  
+  # OpenSearch configuration
+  opensearch:
+    enabled: true
+    host: "3.91.36.147"
+    port: 9200
+    # Optional authentication (uncomment if needed)
+    # username: ""
+    # password: ""
+  
+  # Presto/Trino configuration
+  presto:
+    enabled: true
+    host: "3.91.36.147"
+    port: 8080
+    user: "testuser"
+    catalog: "memory"
+
+# VictoriaMetrics endpoint (localhost:8428 accessible from minikube)
+# Note: minikube can access host machine via host.minikube.internal
+metrics:
+  endpoint: "http://host.minikube.internal:8428"
+
+# Web application configuration
+webapp:
+  # Image settings for minikube (will be built locally)
+  image:
+    registry: ""
+    repository: "nosqlbench-webapp"
+    tag: "v1.0.0"
+    pullPolicy: Never  # Use local image, don't pull from registry
+  
+  # Resource limits for minikube
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  
+  # Service configuration
+  service:
+    type: NodePort  # Use NodePort for easy access in minikube
+    port: 80
+    targetPort: 5000
+  
+  # Environment variables
+  env:
+    FLASK_DEBUG: "true"  # Enable debug mode for testing
+    SECRET_KEY: "minikube-test-secret-key"
+  
+  # Auto-setup configuration
+  autoSetup: true  # Automatically run setup on installation
+
+# NoSQLBench job configuration
+nosqlbench:
+  # Image settings
+  image:
+    registry: ""
+    repository: "nosqlbench/nosqlbench"
+    tag: "5.21.8-preview"
+    pullPolicy: IfNotPresent
+  
+  # Resource limits for minikube (reduced for local testing)
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  
+  # Job settings
+  jobs:
+    # Time to live for completed jobs (shorter for testing)
+    ttlSecondsAfterFinished: 1800  # 30 minutes
+    # Restart policy for jobs
+    restartPolicy: Never
+    # Backoff limit for failed jobs
+    backoffLimit: 2  # Reduced for faster feedback
+
+# RBAC configuration
+rbac:
+  # Create RBAC resources
+  create: true
+
+# Security context (relaxed for minikube)
+securityContext:
+  runAsNonRoot: false  # Allow root for minikube compatibility
+  # runAsUser: 1000
+  # runAsGroup: 1000
+  # fsGroup: 1000
+
+podSecurityContext:
+  runAsNonRoot: false  # Allow root for minikube compatibility
+  # runAsUser: 1000
+  # runAsGroup: 1000
+  # fsGroup: 1000
+
+# Workload configurations
+workloads:
+  # Default cycle rates for workloads (reduced for testing)
+  defaultCycleRate: 5
+  # Default thread configuration
+  threadsAuto: true
+  # Error handling mode
+  errorsMode: "count"
+
+# Persistence (disabled for minikube testing)
+persistence:
+  enabled: false
+
+# Pod disruption budget (disabled for single-node minikube)
+podDisruptionBudget:
+  enabled: false
+
+# Monitoring (disabled for minikube)
+monitoring:
+  serviceMonitor:
+    enabled: false
+
+# Network policies (disabled for minikube)
+networkPolicy:
+  enabled: false

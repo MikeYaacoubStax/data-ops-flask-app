@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NoSQLBench Kubernetes Demo - Test</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+            color: white;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 300;
+            letter-spacing: -0.5px;
+        }
+        .header p {
+            margin: 8px 0 0 0;
+            font-size: 1.1rem;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+            overflow: hidden;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+        }
+        .card-header {
+            padding: 24px 24px 16px 24px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .card-title {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 500;
+            color: #1a1a1a;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .card-content {
+            padding: 24px;
+        }
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+        .status-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 24px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .status-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+        }
+        .status-card h4 {
+            margin: 0 0 16px 0;
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #1a1a1a;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-ready { background-color: #4caf50; }
+        .status-pending { background-color: #ff9800; }
+        .status-error { background-color: #f44336; }
+        .status-disabled { background-color: #9e9e9e; }
+        .btn {
+            background-color: #2196f3;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            margin: 4px;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn:hover {
+            background-color: #1976d2;
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
+            transform: translateY(-1px);
+        }
+        .btn-success { 
+            background-color: #4caf50; 
+            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+        }
+        .btn-success:hover { 
+            background-color: #388e3c; 
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+        }
+        .workload-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .workload-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            margin: 12px 0;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            border-left: 4px solid #2196f3;
+            transition: all 0.2s ease;
+        }
+        .workload-item:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+        }
+        .workload-item.running {
+            border-left-color: #4caf50;
+            background: linear-gradient(90deg, #f1f8e9 0%, #ffffff 100%);
+        }
+        .workload-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .workload-name {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #1a1a1a;
+            margin: 0;
+        }
+        .workload-status {
+            font-size: 0.9rem;
+            color: #666;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .workload-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .input-label {
+            font-size: 0.9rem;
+            color: #666;
+            font-weight: 500;
+        }
+        .cycle-rate-input {
+            width: 80px;
+            padding: 8px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s ease;
+            text-align: center;
+        }
+        .cycle-rate-input:focus {
+            outline: none;
+            border-color: #2196f3;
+        }
+        .runtime-display {
+            font-family: 'Roboto Mono', monospace;
+            color: #4caf50;
+            font-weight: 500;
+            font-size: 0.9rem;
+            background: rgba(76, 175, 80, 0.1);
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="material-icons" style="font-size: 2.5rem; vertical-align: middle; margin-right: 16px;">rocket_launch</i>NoSQLBench Kubernetes</h1>
+            <p>Manage NoSQLBench workloads in Kubernetes</p>
+        </div>
+
+        <!-- Status Grid -->
+        <div class="status-grid">
+            <!-- Kubernetes Status -->
+            <div class="status-card">
+                <h4><i class="material-icons">cloud</i>Kubernetes Status</h4>
+                <div>
+                    <span class="status-indicator status-ready"></span>
+                    <span>Connected</span>
+                </div>
+                <div style="margin-top: 12px;">
+                    <small style="color: #666;">Namespace: nosqlbench-demo</small>
+                </div>
+            </div>
+
+            <!-- Database Configuration -->
+            <div class="status-card">
+                <h4><i class="material-icons">storage</i>Database Configuration</h4>
+                <div>
+                    <span class="status-indicator status-ready"></span>
+                    <span>Configured</span>
+                </div>
+                <div style="margin-top: 12px;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin: 4px 0; padding: 8px; background: #f8f9fa; border-radius: 6px;">
+                        <i class="material-icons" style="font-size: 16px; color: #4caf50;">storage</i>
+                        <small style="color: #333;">
+                            <strong>Cassandra</strong><br>
+                            cassandra.example.com:9042
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Available Workloads -->
+            <div class="status-card">
+                <h4><i class="material-icons">assessment</i>Available Workloads</h4>
+                <div>
+                    <span class="status-indicator status-ready"></span>
+                    <span>2 workloads available</span>
+                </div>
+                <div style="margin-top: 16px;">
+                    <button class="btn btn-success">
+                        <i class="material-icons">play_arrow</i>
+                        Run Setup
+                    </button>
+                </div>
+            </div>
+
+            <!-- Running Benchmarks -->
+            <div class="status-card">
+                <h4><i class="material-icons">speed</i>Running Benchmarks</h4>
+                <div>
+                    <span class="status-indicator status-ready"></span>
+                    <span>1 benchmark running</span>
+                </div>
+                <div style="margin-top: 12px;">
+                    <small style="color: #666;">Active jobs: 1</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Workload Management Section -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <i class="material-icons">tune</i>
+                    Workload Management
+                </h2>
+            </div>
+            <div class="card-content">
+                <ul class="workload-list">
+                    <li class="workload-item running">
+                        <div class="workload-info">
+                            <div class="workload-name">Cassandra SAI</div>
+                            <div class="workload-status">
+                                <i class="material-icons" style="color: #4caf50; font-size: 16px;">play_circle</i>
+                                <span>Running for 2m 34s</span>
+                            </div>
+                        </div>
+                        <div class="workload-controls">
+                            <div class="input-group">
+                                <span class="input-label">Rate:</span>
+                                <input type="number" class="cycle-rate-input" value="50" min="1" max="10000">
+                            </div>
+                            <button class="btn btn-warning">
+                                <i class="material-icons">update</i>
+                                Update
+                            </button>
+                            <button class="btn btn-danger">
+                                <i class="material-icons">stop</i>
+                                Stop
+                            </button>
+                        </div>
+                    </li>
+                    <li class="workload-item">
+                        <div class="workload-info">
+                            <div class="workload-name">Cassandra LWT</div>
+                            <div class="workload-status">
+                                <i class="material-icons" style="color: #9e9e9e; font-size: 16px;">pause_circle</i>
+                                <span>Ready to start</span>
+                            </div>
+                        </div>
+                        <div class="workload-controls">
+                            <div class="input-group">
+                                <span class="input-label">Rate:</span>
+                                <input type="number" class="cycle-rate-input" value="10" min="1" max="10000">
+                            </div>
+                            <button class="btn btn-success">
+                                <i class="material-icons">play_arrow</i>
+                                Start
+                            </button>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

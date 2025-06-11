@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nosqlbench-demo.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "nosqlbench-demo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: webapp
+  {{- with .Values.webapp.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.webapp.service.type }}
+  ports:
+    - port: {{ .Values.webapp.service.port }}
+      targetPort: {{ .Values.webapp.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "nosqlbench-demo.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: webapp
