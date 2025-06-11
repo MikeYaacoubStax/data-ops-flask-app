@@ -1,6 +1,6 @@
 # Updated to use nosqlbench/nosqlbench:5.21.8-preview which includes OpenSearch and Presto/Trino drivers
 # This eliminates the need for custom builds and local nb5 commands
-# Simplified to run single setup commands per workload to match Flask app behavior
+# Restructured to run setup phases sequentially using depends_on with proper ordering
 
 services:
   # NoSQLBench Setup - Cassandra SAI Schema
@@ -55,7 +55,8 @@ services:
     profiles:
       - setup
     depends_on:
-      - nb-setup-cassandra-sai-schema
+      nb-setup-cassandra-sai-schema:
+        condition: service_completed_successfully
 
   # NoSQLBench Setup - Cassandra LWT Schema
   nb-setup-cassandra-lwt-schema:
@@ -108,7 +109,8 @@ services:
     profiles:
       - setup
     depends_on:
-      - nb-setup-cassandra-lwt-schema
+      nb-setup-cassandra-lwt-schema:
+        condition: service_completed_successfully
 
   # NoSQLBench Setup - Cassandra LWT Sharding
   nb-setup-cassandra-lwt-sharding:
@@ -137,7 +139,8 @@ services:
     profiles:
       - setup
     depends_on:
-      - nb-setup-cassandra-lwt-truncating
+      nb-setup-cassandra-lwt-truncating:
+        condition: service_completed_successfully
 
   # NoSQLBench Setup - Cassandra LWT Load
   nb-setup-cassandra-lwt-load:
@@ -166,7 +169,8 @@ services:
     profiles:
       - setup
     depends_on:
-      - nb-setup-cassandra-lwt-sharding
+      nb-setup-cassandra-lwt-sharding:
+        condition: service_completed_successfully
 
   # NoSQLBench Setup - OpenSearch Basic Pre-cleanup
   nb-setup-opensearch-basic-precleanup:
@@ -212,7 +216,8 @@ services:
     profiles:
       - setup
     depends_on:
-      - nb-setup-opensearch-basic-precleanup
+      nb-setup-opensearch-basic-precleanup:
+        condition: service_completed_successfully
 
   # NoSQLBench Setup - OpenSearch Basic Rampup
   nb-setup-opensearch-basic-rampup:
@@ -238,7 +243,8 @@ services:
     profiles:
       - setup
     depends_on:
-      - nb-setup-opensearch-basic-schema
+      nb-setup-opensearch-basic-schema:
+        condition: service_completed_successfully
 
   # NoSQLBench Setup - OpenSearch Vector Pre-cleanup
   nb-setup-opensearch-vector-precleanup:
@@ -284,7 +290,8 @@ services:
     profiles:
       - setup
     depends_on:
-      - nb-setup-opensearch-vector-precleanup
+      nb-setup-opensearch-vector-precleanup:
+        condition: service_completed_successfully
 
   # NoSQLBench Setup - OpenSearch Vector Rampup
   nb-setup-opensearch-vector-rampup:
@@ -310,7 +317,8 @@ services:
     profiles:
       - setup
     depends_on:
-      - nb-setup-opensearch-vector-schema
+      nb-setup-opensearch-vector-schema:
+        condition: service_completed_successfully
 
   # NoSQLBench Setup - OpenSearch Bulk Pre-cleanup
   nb-setup-opensearch-bulk-precleanup:
@@ -356,7 +364,8 @@ services:
     profiles:
       - setup
     depends_on:
-      - nb-setup-opensearch-bulk-precleanup
+      nb-setup-opensearch-bulk-precleanup:
+        condition: service_completed_successfully
 
   # NoSQLBench Setup - OpenSearch Bulk Load
   nb-setup-opensearch-bulk-load:
@@ -382,7 +391,8 @@ services:
     profiles:
       - setup
     depends_on:
-      - nb-setup-opensearch-bulk-schema
+      nb-setup-opensearch-bulk-schema:
+        condition: service_completed_successfully
 
   # NoSQLBench Setup - Presto Analytics Drop
   nb-setup-presto-analytics-drop:
@@ -428,7 +438,8 @@ services:
     profiles:
       - setup
     depends_on:
-      - nb-setup-presto-analytics-drop
+      nb-setup-presto-analytics-drop:
+        condition: service_completed_successfully
 
   # NoSQLBench Setup - Presto Analytics Rampup
   nb-setup-presto-analytics-rampup:
@@ -453,7 +464,8 @@ services:
     profiles:
       - setup
     depends_on:
-      - nb-setup-presto-analytics-schema
+      nb-setup-presto-analytics-schema:
+        condition: service_completed_successfully
 
   # NoSQLBench Setup - Presto E-commerce Drop
   nb-setup-presto-ecommerce-drop:
@@ -499,7 +511,8 @@ services:
     profiles:
       - setup
     depends_on:
-      - nb-setup-presto-ecommerce-drop
+      nb-setup-presto-ecommerce-drop:
+        condition: service_completed_successfully
 
   # NoSQLBench Setup - Presto E-commerce Rampup
   nb-setup-presto-ecommerce-rampup:
@@ -524,4 +537,5 @@ services:
     profiles:
       - setup
     depends_on:
-      - nb-setup-presto-ecommerce-schema
+      nb-setup-presto-ecommerce-schema:
+        condition: service_completed_successfully
