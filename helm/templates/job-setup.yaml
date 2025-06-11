@@ -4,21 +4,29 @@ It's not deployed directly but serves as a reference for the job specifications.
 */}}
 
 {{- if .Values.webapp.autoSetup }}
-{{- range $workload, $config := .Values.workloads }}
-{{- if $config.enabled }}
+{{- range $workload, $config := .Values.workloadDefinitions }}
+{{- $enabled := false }}
+{{- if eq $config.driver "cql" }}
+  {{- $enabled = $.Values.databases.cassandra.enabled }}
+{{- else if eq $config.driver "opensearch" }}
+  {{- $enabled = $.Values.databases.opensearch.enabled }}
+{{- else if eq $config.driver "jdbc" }}
+  {{- $enabled = $.Values.databases.presto.enabled }}
+{{- end }}
+{{- if $enabled }}
 {{- range $phase := $config.setup_phases }}
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "nosqlbench-demo.fullname" $ }}-setup-{{ $workload }}-{{ $phase | replace "." "-" }}
+  name: {{ include "nosqlbench-demo.fullname" $ }}-setup-{{ $workload | replace "_" "-" }}-{{ $phase | replace "." "-" | replace "_" "-" }}
   namespace: {{ $.Release.Namespace }}
   labels:
     {{- include "nosqlbench-demo.labels" $ | nindent 4 }}
     app.kubernetes.io/component: nosqlbench
     job-type: setup
     workload: {{ $workload }}
-    phase: {{ $phase | replace "." "-" }}
+    phase: {{ $phase | replace "." "-" | replace "_" "-" }}
 spec:
   ttlSecondsAfterFinished: {{ $.Values.nosqlbench.jobs.ttlSecondsAfterFinished }}
   backoffLimit: {{ $.Values.nosqlbench.jobs.backoffLimit }}
@@ -40,11 +48,16 @@ spec:
       containers:
         - name: nosqlbench
           securityContext:
-            {{- toYaml $.Values.securityContext | nindent 12 }}
+            runAsNonRoot: {{ $.Values.securityContext.runAsNonRoot | default true }}
+            {{- if $.Values.securityContext.runAsUser }}
+            runAsUser: {{ $.Values.securityContext.runAsUser }}
+            {{- end }}
+            {{- if $.Values.securityContext.runAsGroup }}
+            runAsGroup: {{ $.Values.securityContext.runAsGroup }}
+            {{- end }}
           image: {{ include "nosqlbench-demo.nosqlbench.image" $ }}
           imagePullPolicy: {{ $.Values.nosqlbench.image.pullPolicy }}
-          command:
-            - "nb5"
+          args:
             - "--include=/workloads"
             - {{ $config.file | quote }}
             - {{ $phase | quote }}
@@ -66,9 +79,6 @@ spec:
             {{- end }}
             - "threads=auto"
             - "errors={{ $.Values.workloads.errorsMode }}"
-            - "--report-prompush-to={{ $.Values.metrics.endpoint }}/api/v1/import/prometheus/metrics/job/nosqlbench/instance/setup-{{ $workload }}-{{ $phase }}"
-            - "--add-labels=job:nosqlbench,instance:setup-{{ $workload }}-{{ $phase }},workload:{{ $workload }},phase:{{ $phase }}"
-            - "--report-interval=10"
           env:
             {{- include "nosqlbench-demo.databaseEnv" $ | nindent 12 }}
           volumeMounts:

@@ -72,37 +72,29 @@ def status_monitor_loop():
 def get_application_status():
     """Get comprehensive application status"""
     try:
-        # Get database configuration
-        db_config = config_manager.get_database_config()
-        
-        # Get available workloads
-        available_workloads = config_manager.get_available_workloads()
-        
-        # Get setup status
-        setup_status = job_manager.get_setup_status()
-        
-        # Get workloads ready for benchmarking
-        ready_for_benchmark = job_manager.get_workloads_ready_for_benchmark()
-        
-        # Get running benchmarks
-        running_benchmarks = job_manager.get_running_benchmarks()
-        
+        # Get configured databases
+        databases = state_manager.get_configured_databases()
+
+        # Get all available workloads
+        available_workloads = config_manager.get_all_workloads()
+
+        # Get running jobs
+        running_jobs = job_manager.get_running_jobs()
+
         return {
             "kubernetes": {
                 "namespace": job_manager.namespace,
                 "ready": True
             },
             "databases": {
-                "configured": len([db for db, config in db_config.items() if config.get('enabled')]) > 0,
-                "config": db_config
+                "configured": len(databases) > 0,
+                "list": databases
             },
             "workloads": {
-                "available": available_workloads,
-                "setup_status": setup_status,
-                "ready_for_benchmark": ready_for_benchmark
+                "available": available_workloads
             },
-            "benchmarks": {
-                "running": running_benchmarks
+            "jobs": {
+                "running": running_jobs
             }
         }
     except Exception as e:
@@ -131,26 +123,102 @@ def ready():
         logger.error(f"Readiness check failed: {e}")
         return jsonify({"status": "not ready", "error": str(e)}), 503
 
+@app.route('/static/<path:filename>')
+def static_files(filename):
+    """Serve static files"""
+    return app.send_static_file(filename)
+
 @app.route('/api/status')
 def status():
     """Get application status"""
     return jsonify(get_application_status())
 
-@app.route('/api/databases/config')
-def get_database_config():
-    """Get database configuration"""
+@app.route('/api/databases/list')
+def get_databases():
+    """Get list of configured databases"""
     try:
-        config = config_manager.get_database_config()
-        return jsonify({"success": True, "config": config})
+        databases = state_manager.get_configured_databases()
+        return jsonify({"success": True, "databases": databases})
     except Exception as e:
-        logger.error(f"Failed to get database config: {e}")
+        logger.error(f"Failed to get databases: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/databases/add', methods=['POST'])
+def add_database():
+    """Add a new database endpoint"""
+    try:
+        data = request.get_json()
+        db_type = data.get('type')  # cassandra, opensearch, presto
+        host = data.get('host')
+        port = data.get('port')
+        name = data.get('name')  # user-defined name for this database
+
+        if not all([db_type, host, port, name]):
+            return jsonify({"success": False, "error": "Missing required fields: type, host, port, name"}), 400
+
+        if db_type not in ['cassandra', 'opensearch', 'presto']:
+            return jsonify({"success": False, "error": "Invalid database type. Must be: cassandra, opensearch, or presto"}), 400
+
+        # Add optional authentication fields
+        username = data.get('username', '')
+        password = data.get('password', '')
+
+        database_config = {
+            'type': db_type,
+            'host': host,
+            'port': int(port),
+            'name': name,
+            'username': username,
+            'password': password,
+            'verified': False  # Will be set to True after connectivity test
+        }
+
+        result = state_manager.add_database(database_config)
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Failed to add database: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/databases/test', methods=['POST'])
+def test_database_connectivity():
+    """Test database connectivity"""
+    try:
+        data = request.get_json()
+        db_id = data.get('db_id')
+
+        if not db_id:
+            return jsonify({"success": False, "error": "Database ID required"}), 400
+
+        result = job_manager.test_database_connectivity(db_id)
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Failed to test database connectivity: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/databases/remove', methods=['DELETE'])
+def remove_database():
+    """Remove a database endpoint"""
+    try:
+        data = request.get_json()
+        db_id = data.get('db_id')
+
+        if not db_id:
+            return jsonify({"success": False, "error": "Database ID required"}), 400
+
+        result = state_manager.remove_database(db_id)
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Failed to remove database: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/workloads/available')
 def get_available_workloads():
-    """Get available workloads"""
+    """Get all available workloads (all 7 workloads from helm/workloads/)"""
     try:
-        workloads = config_manager.get_available_workloads()
+        workloads = config_manager.get_all_workloads()
         return jsonify({"success": True, "workloads": workloads})
     except Exception as e:
         logger.error(f"Failed to get available workloads: {e}")
@@ -193,35 +261,40 @@ def run_setup():
 
 @app.route('/api/benchmarks/start', methods=['POST'])
 def start_benchmark():
-    """Start a benchmark"""
+    """Start a benchmark job (setup or live scenario)"""
     try:
         data = request.get_json()
         workload = data.get('workload')
+        scenario = data.get('scenario')  # 'setup' or 'live'
+        database_id = data.get('database_id')
         cycle_rate = data.get('cycle_rate', 10)
-        
-        if not workload:
-            return jsonify({"success": False, "error": "No workload specified"}), 400
-        
-        result = job_manager.start_benchmark(workload, cycle_rate)
+
+        if not all([workload, scenario, database_id]):
+            return jsonify({"success": False, "error": "Missing required fields: workload, scenario, database_id"}), 400
+
+        if scenario not in ['setup', 'live']:
+            return jsonify({"success": False, "error": "Scenario must be 'setup' or 'live'"}), 400
+
+        result = job_manager.start_job(workload, scenario, database_id, cycle_rate)
         return jsonify(result)
-        
+
     except Exception as e:
         logger.error(f"Failed to start benchmark: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/benchmarks/stop', methods=['POST'])
 def stop_benchmark():
-    """Stop a benchmark"""
+    """Stop a benchmark job"""
     try:
         data = request.get_json()
-        workload = data.get('workload')
-        
-        if not workload:
-            return jsonify({"success": False, "error": "No workload specified"}), 400
-        
-        result = job_manager.stop_benchmark(workload)
+        job_id = data.get('job_id')
+
+        if not job_id:
+            return jsonify({"success": False, "error": "Job ID required"}), 400
+
+        result = job_manager.stop_job(job_id)
         return jsonify(result)
-        
+
     except Exception as e:
         logger.error(f"Failed to stop benchmark: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
@@ -244,14 +317,14 @@ def update_throughput():
         logger.error(f"Failed to update throughput: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
-@app.route('/api/benchmarks/running')
-def get_running_benchmarks():
-    """Get running benchmarks"""
+@app.route('/api/jobs/running')
+def get_running_jobs():
+    """Get all running jobs"""
     try:
-        benchmarks = job_manager.get_running_benchmarks()
-        return jsonify({"success": True, "benchmarks": benchmarks})
+        jobs = job_manager.get_running_jobs()
+        return jsonify({"success": True, "jobs": jobs})
     except Exception as e:
-        logger.error(f"Failed to get running benchmarks: {e}")
+        logger.error(f"Failed to get running jobs: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 # WebSocket handlers
@@ -292,16 +365,7 @@ if __name__ == '__main__':
         # Start status monitoring
         start_status_monitor()
         
-        # Auto-setup if enabled
-        if config_manager.is_auto_setup_enabled():
-            logger.info("Auto-setup is enabled, starting workload setup...")
-            try:
-                available_workloads = config_manager.get_available_workloads()
-                for workload in available_workloads:
-                    logger.info(f"Auto-setting up workload: {workload}")
-                    job_manager.run_setup_phases(workload)
-            except Exception as e:
-                logger.error(f"Auto-setup failed: {e}")
+        # Auto-setup removed in simplified flow
         
         # Run the application
         logger.info("Starting NoSQLBench Kubernetes Demo Application")

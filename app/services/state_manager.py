@@ -34,7 +34,9 @@ class StateManager:
     """Manages persistent application state"""
     
     def __init__(self, state_file: str = "app_state.json"):
-        self.state_file = state_file
+        # Store state file in project root
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        self.state_file = os.path.join(project_root, state_file)
         self.lock = threading.Lock()
         self._state = ApplicationState()
         self.load_state()

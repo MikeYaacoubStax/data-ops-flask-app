@@ -44,8 +44,8 @@ class KubernetesStateManager:
         
         # Initialize state
         self._state = {
-            "setup_completed": {},
-            "running_benchmarks": {},
+            "configured_databases": {},  # {db_id: {type, host, port, name, username, password, verified}}
+            "running_jobs": {},  # {job_id: {workload, scenario, database_id, start_time, cycle_rate}}
             "last_updated": datetime.now().isoformat()
         }
         
@@ -126,48 +126,176 @@ class KubernetesStateManager:
         """Get current state as dictionary"""
         with self.lock:
             return self._state.copy()
+
+    def get_configured_databases(self) -> Dict[str, Any]:
+        """Get all configured databases"""
+        with self.lock:
+            return self._state.get("configured_databases", {}).copy()
+
+    def add_database(self, database_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Add a new database configuration"""
+        try:
+            with self.lock:
+                # Generate unique ID for the database
+                import uuid
+                db_id = str(uuid.uuid4())
+
+                # Add timestamp
+                database_config['added_at'] = datetime.now().isoformat()
+                database_config['id'] = db_id
+
+                # Store in state
+                if "configured_databases" not in self._state:
+                    self._state["configured_databases"] = {}
+
+                self._state["configured_databases"][db_id] = database_config
+
+                # Save state
+                self.save_state()
+
+                logger.info(f"Added database {database_config['name']} ({database_config['type']}) with ID {db_id}")
+
+                return {
+                    "success": True,
+                    "database_id": db_id,
+                    "message": f"Database {database_config['name']} added successfully"
+                }
+
+        except Exception as e:
+            logger.error(f"Failed to add database: {e}")
+            return {"success": False, "error": str(e)}
+
+    def remove_database(self, db_id: str) -> Dict[str, Any]:
+        """Remove a database configuration"""
+        try:
+            with self.lock:
+                if "configured_databases" not in self._state:
+                    return {"success": False, "error": "No databases configured"}
+
+                if db_id not in self._state["configured_databases"]:
+                    return {"success": False, "error": "Database not found"}
+
+                db_name = self._state["configured_databases"][db_id].get('name', db_id)
+                del self._state["configured_databases"][db_id]
+
+                # Save state
+                self.save_state()
+
+                logger.info(f"Removed database {db_name} with ID {db_id}")
+
+                return {
+                    "success": True,
+                    "message": f"Database {db_name} removed successfully"
+                }
+
+        except Exception as e:
+            logger.error(f"Failed to remove database: {e}")
+            return {"success": False, "error": str(e)}
+
+    def update_database_verification(self, db_id: str, verified: bool) -> Dict[str, Any]:
+        """Update database verification status"""
+        try:
+            with self.lock:
+                if "configured_databases" not in self._state:
+                    return {"success": False, "error": "No databases configured"}
+
+                if db_id not in self._state["configured_databases"]:
+                    return {"success": False, "error": "Database not found"}
+
+                self._state["configured_databases"][db_id]["verified"] = verified
+                self._state["configured_databases"][db_id]["verified_at"] = datetime.now().isoformat()
+
+                # Save state
+                self.save_state()
+
+                return {"success": True}
+
+        except Exception as e:
+            logger.error(f"Failed to update database verification: {e}")
+            return {"success": False, "error": str(e)}
+
+    def get_database(self, db_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific database configuration"""
+        with self.lock:
+            return self._state.get("configured_databases", {}).get(db_id)
     
+    # Legacy methods - keeping for compatibility but not used in new simplified flow
     def update_setup_status(self, workload: str, completed: bool):
-        """Update setup completion status for a workload"""
-        with self.lock:
-            self._state["setup_completed"][workload] = completed
-        self.save_state()
-        logger.info(f"Updated setup status for {workload}: {completed}")
-    
+        """Update setup completion status for a workload (legacy)"""
+        pass  # No longer needed in simplified flow
+
     def is_setup_completed(self, workload: str) -> bool:
-        """Check if setup is completed for a workload"""
-        with self.lock:
-            return self._state["setup_completed"].get(workload, False)
-    
+        """Check if setup is completed for a workload (legacy)"""
+        return True  # Always return True since we removed setup requirements
+
     def get_setup_status(self) -> Dict[str, bool]:
-        """Get setup status for all workloads"""
-        with self.lock:
-            return self._state["setup_completed"].copy()
+        """Get setup status for all workloads (legacy)"""
+        return {}  # Return empty since we removed setup requirements
     
+    def add_running_job(self, job_id: str, job_info: Dict[str, Any]):
+        """Add a running job"""
+        with self.lock:
+            if "running_jobs" not in self._state:
+                self._state["running_jobs"] = {}
+
+            job_info['start_time'] = datetime.now().isoformat()
+            self._state["running_jobs"][job_id] = job_info
+            self.save_state()
+            logger.info(f"Added running job: {job_id}")
+
+    def remove_running_job(self, job_id: str):
+        """Remove a running job"""
+        with self.lock:
+            if job_id in self._state.get("running_jobs", {}):
+                del self._state["running_jobs"][job_id]
+                self.save_state()
+                logger.info(f"Removed running job: {job_id}")
+
+    def get_running_jobs(self) -> Dict[str, Any]:
+        """Get all running jobs"""
+        with self.lock:
+            return self._state.get("running_jobs", {}).copy()
+
+    def is_job_running(self, job_id: str) -> bool:
+        """Check if a job is currently running"""
+        with self.lock:
+            return job_id in self._state.get("running_jobs", {})
+
+    # Legacy methods for backward compatibility
     def add_running_benchmark(self, workload: str, job_name: str, cycle_rate: int, start_time: float):
-        """Add a running benchmark"""
-        with self.lock:
-            self._state["running_benchmarks"][workload] = {
-                "job_name": job_name,
-                "cycle_rate": cycle_rate,
-                "start_time": start_time,
-                "status": "running"
-            }
-        self.save_state()
-        logger.info(f"Added running benchmark for {workload}: {job_name}")
-    
+        """Add a running benchmark (legacy)"""
+        job_info = {
+            "workload": workload,
+            "scenario": "live",  # Assume live for legacy calls
+            "job_name": job_name,
+            "cycle_rate": cycle_rate,
+            "start_time": start_time,
+            "status": "running"
+        }
+        self.add_running_job(job_name, job_info)
+
     def remove_running_benchmark(self, workload: str):
-        """Remove a running benchmark"""
+        """Remove a running benchmark (legacy)"""
+        # Find job by workload name and remove it
         with self.lock:
-            if workload in self._state["running_benchmarks"]:
-                del self._state["running_benchmarks"][workload]
-        self.save_state()
-        logger.info(f"Removed running benchmark for {workload}")
-    
+            jobs_to_remove = []
+            for job_id, job_info in self._state.get("running_jobs", {}).items():
+                if job_info.get("workload") == workload:
+                    jobs_to_remove.append(job_id)
+
+            for job_id in jobs_to_remove:
+                self.remove_running_job(job_id)
+
     def get_running_benchmarks(self) -> Dict[str, Dict[str, Any]]:
-        """Get all running benchmarks"""
+        """Get all running benchmarks (legacy)"""
+        # Convert new job format to legacy benchmark format
         with self.lock:
-            return self._state["running_benchmarks"].copy()
+            benchmarks = {}
+            for job_id, job_info in self._state.get("running_jobs", {}).items():
+                workload = job_info.get("workload")
+                if workload:
+                    benchmarks[workload] = job_info
+            return benchmarks
     
     def update_benchmark_status(self, workload: str, status: str, **kwargs):
         """Update status of a running benchmark"""

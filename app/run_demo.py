@@ -81,7 +81,12 @@ def main():
     
     if checks_passed < total_checks:
         logger.warning("Some prerequisites not met. Some features may not work correctly.")
-    
+
+    # Ensure required directories exist (relative to project root)
+    project_root = os.path.dirname(os.path.dirname(__file__))
+    os.makedirs(os.path.join(project_root, "logs"), exist_ok=True)
+    os.makedirs(os.path.join(project_root, "results"), exist_ok=True)
+
     # Start the Flask application
     logger.info("Starting Flask application...")
     logger.info("Dashboard will be available at: http://localhost:5000")

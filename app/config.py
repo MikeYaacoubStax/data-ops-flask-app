@@ -50,7 +50,10 @@ class AppConfig:
         
         # Docker configuration
         self.docker_network = "demo-network"
-        
+
+        # Path to workloads directory (relative to project root)
+        self.workloads_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'demo_workloads')
+
         # Workload configurations
         self.workload_configs = {
             'cassandra_sai': {

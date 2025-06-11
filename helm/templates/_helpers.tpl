@@ -55,9 +55,9 @@ Create the name of the service account to use
 */}}
 {{- define "nosqlbench-demo.serviceAccountName" -}}
 {{- if .Values.rbac.create }}
-{{- default (include "nosqlbench-demo.fullname" .) .Values.serviceAccount.name }}
+{{- include "nosqlbench-demo.fullname" . }}
 {{- else }}
-{{- default "default" .Values.serviceAccount.name }}
+{{- default "default" }}
 {{- end }}
 {{- end }}
 

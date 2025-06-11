@@ -35,8 +35,15 @@ class BenchmarkManager:
         self.lock = threading.Lock()
         self.state_manager = state_manager
 
-        # Ensure logs directory exists
-        os.makedirs("logs", exist_ok=True)
+        # Ensure logs directory exists (relative to project root)
+        logs_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'logs')
+        os.makedirs(logs_path, exist_ok=True)
+        self.logs_path = logs_path
+
+        # Ensure results directory exists (relative to project root)
+        results_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'results')
+        os.makedirs(results_path, exist_ok=True)
+        self.results_path = results_path
 
     def is_database_configured(self, driver: str, database_config: Dict[str, Any]) -> bool:
         """Check if a database is properly configured"""
@@ -96,7 +103,7 @@ class BenchmarkManager:
         workload_config = self.config.workload_configs.get(workload_name)
 
         # Create log directory for this specific run
-        log_dir = f"logs/{workload_name}_{phase}_{test_id}"
+        log_dir = os.path.join(self.logs_path, f"{workload_name}_{phase}_{test_id}")
         os.makedirs(log_dir, exist_ok=True)
 
         # Build Docker command
@@ -104,8 +111,8 @@ class BenchmarkManager:
             "docker", "run", "--rm",
             "--name", f"nosqlbench-{workload_name}-{test_id}",
             "--network", self.config.benchmark.docker_network,
-            "-v", f"{os.path.abspath('demo_workloads')}:/workloads",
-            "-v", f"{os.path.abspath('results')}:/results",
+            "-v", f"{os.path.abspath(self.config.workloads_path)}:/workloads",
+            "-v", f"{os.path.abspath(self.results_path)}:/results",
             "-v", f"{os.path.abspath(log_dir)}:/logs",
             self.config.benchmark.docker_image,
             "--include=/workloads", workload_config['file'], phase
@@ -189,7 +196,7 @@ class BenchmarkManager:
         if is_docker:
             cmd.append("--logs-dir=/logs")
         else:
-            log_dir = f"logs/{workload_config.get('name', 'unknown')}_{test_id}"
+            log_dir = os.path.join(self.logs_path, f"{workload_config.get('name', 'unknown')}_{test_id}")
             os.makedirs(log_dir, exist_ok=True)
             cmd.append(f"--logs-dir={log_dir}")
 
@@ -225,7 +232,7 @@ class BenchmarkManager:
                 logger.info(f"Executing command: {' '.join(cmd)}")
 
                 # Create log directory for this specific command
-                log_dir = f"logs/{workload_name}_{phase}_{test_id}"
+                log_dir = os.path.join(self.logs_path, f"{workload_name}_{phase}_{test_id}")
                 os.makedirs(log_dir, exist_ok=True)
 
                 # Capture output to files

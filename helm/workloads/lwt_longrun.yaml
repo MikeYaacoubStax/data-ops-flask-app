@@ -1,0 +1,500 @@
+scenarios:
+  setup:
+    schema: run driver=cql tags==phase:schema-astra cycles==UNDEF
+    truncating: run driver=cql tags==phase:reset cycles==UNDEF threads=1
+    sharding: run driver=cql tags==phase:shard-init threads==TEMPLATE(shard_threads,8) cycles==TEMPLATE(shard_cycles,80) cyclerate=TEMPLATE(shard_cyclerate,10) stride_constant=TEMPLATE(stride_constant,1) shard_range_size=TEMPLATE(shard_range_size,80)
+    lwt_load: run driver=cql tags==phase:data-load seq===concat shard_range_size=TEMPLATE(shard_range_size,80) stride_constant===TEMPLATE(stride_constant,384) update_ratio===TEMPLATE(update_ratio,75) non_repeating_statements===TEMPLATE(non_repeating_statements,9) repeating_statements===TEMPLATE(repeating_statements,5) cyclerate=TEMPLATE(load_cyclerate,1000) cycles==TEMPLATE(load_cycles,100000) threads==auto
+  live:
+    lwt_live_update: run driver=cql tags==phase:live-data cycles==TEMPLATE(live_cycles,3B) threads=auto shard_range_size=TEMPLATE(shard_range_size,80) max_rounds=TEMPLATE(max_rounds,3) max_tasks=TEMPLATE(max_tasks,225) stride_constant=TEMPLATE(stride_constant,1) shard_offset=TEMPLATE(shard_offset,0) update_ratio===TEMPLATE(update_ratio,75) non_repeating_statements===TEMPLATE(non_repeating_statements,9) repeating_statements===TEMPLATE(repeating_statements,5)
+  default:
+    schema: run driver=cql tags==phase:schema-astra cycles==UNDEF
+    truncating: run driver=cql tags==phase:reset cycles==UNDEF threads=1
+    sharding: run driver=cql tags==phase:shard-init threads==TEMPLATE(shard_threads,8) cycles==TEMPLATE(shard_cycles,80) cyclerate=TEMPLATE(shard_cyclerate,10) stride_constant=TEMPLATE(stride_constant,1) shard_range_size=TEMPLATE(shard_range_size,80)
+    lwt_load: run driver=cql tags==phase:data-load seq===concat shard_range_size=TEMPLATE(shard_range_size,80) stride_constant===TEMPLATE(stride_constant,384) update_ratio===TEMPLATE(update_ratio,75) non_repeating_statements===TEMPLATE(non_repeating_statements,9) repeating_statements===TEMPLATE(repeating_statements,5) cyclerate=TEMPLATE(load_cyclerate,1000) cycles==TEMPLATE(load_cycles,100000) threads==auto
+    lwt_live_update: run driver=cql tags==phase:live-data cycles==TEMPLATE(live_cycles,3B) threads=auto shard_range_size=TEMPLATE(shard_range_size,80) max_rounds=TEMPLATE(max_rounds,3) max_tasks=TEMPLATE(max_tasks,225) stride_constant=TEMPLATE(stride_constant,1) shard_offset=TEMPLATE(shard_offset,0) update_ratio===TEMPLATE(update_ratio,75) non_repeating_statements===TEMPLATE(non_repeating_statements,9) repeating_statements===TEMPLATE(repeating_statements,5)
+
+bindings:
+  # history
+  tree_id: Div(TEMPLATE(stride_constant,1)); Mod(TEMPLATE(shard_range_size,80)); Add(0); ToEpochTimeUUID('2017-01-01 23:59:59')
+  branch_id: Div(TEMPLATE(stride_constant,1)); Mod(TEMPLATE(shard_range_size,80)); Add(0); ToEpochTimeUUID('2017-01-01 23:59:59')
+  node_id: Expr('cycle - (TEMPLATE(non_repeating_statements,9) * ((cycle / TEMPLATE(stride_constant,1)) + 1))'); Expr('(cycle % TEMPLATE(update_ratio,75)) + (TEMPLATE(update_ratio,75) * (cycle / (TEMPLATE(shard_range_size,80) * TEMPLATE(repeating_statements,5) * TEMPLATE(update_ratio,75))))')
+  txn_id: Expr('cycle - (TEMPLATE(non_repeating_statements,9) * ((cycle / TEMPLATE(stride_constant,1)) + 1))'); Expr('(cycle % TEMPLATE(update_ratio,75)) + (TEMPLATE(update_ratio,75) * (cycle / (TEMPLATE(shard_range_size,80) * TEMPLATE(repeating_statements,5) * TEMPLATE(update_ratio,75))))')
+
+  shard_id: Div(TEMPLATE(stride_constant,1)); Mod(TEMPLATE(shard_range_size,80)); Add(0) -> int
+
+  # Type Constants
+  execution_type: FixedValue(0) -> int
+  transfer_type: FixedValue(1) -> int
+  timer_type: FixedValue(2) -> int
+  replication_type: FixedValue(3) -> int
+  visibility_type: FixedValue(4) -> int
+  shard_type: FixedValue(5) -> int
+
+  # Defaults
+  default_visibility_timestamp: FixedValue(0); StartingEpochMillis('2000-01-01 00:00:00'); ToJavaInstant();
+  row_type_shard_task_id: FixedValue(-11)
+  row_type_execution_task_id: FixedValue(-10)
+
+  # Execution Type PK-Uniques
+  # round robin over shards...
+  namespace_id: Div(TEMPLATE(stride_constant,1)); Div(TEMPLATE(shard_range_size,80)); ToEpochTimeUUID('2017-01-01 23:59:59')
+  workflow_id: Div(TEMPLATE(stride_constant,1)); Div(TEMPLATE(shard_range_size,80)); ToString()
+  run_id: Div(TEMPLATE(stride_constant,1)); Div(TEMPLATE(shard_range_size,80)); ToEpochTimeUUID('2017-01-01 23:59:59')
+
+  # Task Type PK-Uniques
+  # max value - update ratio * max times written to shard
+  task_id: Expr('cycle - (TEMPLATE(non_repeating_statements,9) * ((cycle / TEMPLATE(stride_constant,1)) + 1))'); Expr('(cycle % TEMPLATE(update_ratio,75)) + (TEMPLATE(update_ratio,75) * (cycle / (TEMPLATE(shard_range_size,80) * TEMPLATE(repeating_statements,5) * TEMPLATE(update_ratio,75))))')
+  timer_ts: Expr('cycle - (TEMPLATE(non_repeating_statements,9) * ((cycle / TEMPLATE(stride_constant,1)) + 1))'); Expr('(cycle % TEMPLATE(update_ratio,75)) + (TEMPLATE(update_ratio,75) * (cycle / (TEMPLATE(shard_range_size,80) * TEMPLATE(repeating_statements,5) * TEMPLATE(update_ratio,75))))'); StartingEpochMillis('1970-01-01 00:00:00'); ToJavaInstant();
+
+  # Blobs
+  blob_data: ByteBufferSizedHashed(1000)
+
+  # LWTs
+  range_id: FixedValue(0) -> long
+  current_run_id: FixedValue(0); ToEpochTimeUUID('2017-01-01 23:59:59')
+  db_record_version: FixedValue(0) -> long
+
+  # Executions - Written but never used in a SELECT or WHERE or as a key
+  workflow_last_write_version: HashRange(1000000000) -> long
+  next_event_id: HashRange(1000000000) -> long
+  workflow_state: Mod(7) -> int # 7 possible workflow states, see temporal/api/enums/v1/workflow.pb.go
+  # Executions - Queried
+  # Fixed at 0 so the update workload can being incrementing the map key from a zero-based cycle range.
+  map_key: FixedValue(0) -> long
+  timer_map_key: FixedValue(0); ToString()
+  signal_requested_add: FixedValue(0); Set(HashRange(1), ToEpochTimeUUID('2017-01-01 23:59:59'))
+
+  #Live Data Values
+  ld_node_id: HashRange(TEMPLATE(max_tasks,225)) -> long
+  ld_max_node_id: HashRange(TEMPLATE(max_tasks,225)); Add(10) -> long
+  ld_tree_id: Mod(TEMPLATE(shard_range_size,80)); Add(TEMPLATE(shard_offset,0)); ToEpochTimeUUID('2017-01-01 23:59:59')
+  ld_branch_id: Mod(TEMPLATE(shard_range_size,80)); Add(TEMPLATE(shard_offset,0)); ToEpochTimeUUID('2017-01-01 23:59:59')
+  ld_namespace_id: HashRange(TEMPLATE(max_rounds,3)); ToEpochTimeUUID('2017-01-01 23:59:59')
+  ld_workflow_id: HashRange(TEMPLATE(max_rounds,3)); ToString()
+  ld_run_id: HashRange(TEMPLATE(max_rounds,3)); ToEpochTimeUUID('2017-01-01 23:59:59')
+  ld_task_id: HashRange(TEMPLATE(max_tasks,225))
+  ld_timer_ts: HashRange(TEMPLATE(max_tasks,225)); StartingEpochMillis('1970-01-01 00:00:00'); ToJavaInstant();
+  delete_map_key: Mod(2) -> long
+  add_map_key: Add(1); Mod(2) -> long
+  timer_delete_map_key: Mod(2); ToString()
+  timer_add_map_key: Add(1); Mod(2); ToString()
+  signal_requested_delete: Mod(2); Set(HashRange(1), ToEpochTimeUUID('2017-01-01 23:59:59'))
+
+
+blocks:
+  - tags:
+      phase: schema-astra
+    params:
+      prepared: false
+      timeout: 10.0
+    statements:
+      - create-keyspace: |
+          CREATE KEYSPACE IF NOT EXISTS TEMPLATE(keyspace,lwt_ks)
+          WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '1'};
+      - create-history-tree-table: |
+          CREATE TABLE IF NOT EXISTS TEMPLATE(keyspace,lwt_ks).history_tree (
+            tree_id               uuid,
+            branch_id             uuid,
+            branch                blob,
+            branch_encoding       text,
+            PRIMARY KEY ((tree_id), branch_id )
+          );
+      - create-history-node-table: |
+          CREATE TABLE IF NOT EXISTS TEMPLATE(keyspace,lwt_ks).history_node (
+            tree_id           uuid,
+            branch_id         uuid,
+            node_id           bigint,
+            txn_id            bigint,
+            prev_txn_id       bigint,
+            data                blob,
+            data_encoding       text,
+            PRIMARY KEY ((tree_id), branch_id, node_id, txn_id )
+          );
+      - create-serialized-event-batch-type: |
+          CREATE TYPE IF NOT EXISTS TEMPLATE(keyspace,lwt_ks).serialized_event_batch (
+            encoding_type text,
+            version       int,
+            data          blob,
+          );
+      - create-executions-table: |
+          CREATE TABLE IF NOT EXISTS TEMPLATE(keyspace,lwt_ks).executions (
+            shard_id                       int,
+            type                           int,
+            namespace_id                   uuid,
+            workflow_id                    text,
+            run_id                         uuid,
+            current_run_id                 uuid,
+            visibility_ts                  timestamp,
+            task_id                        bigint,
+            shard                          blob,
+            shard_encoding                 text,
+            execution                      blob,
+            execution_encoding             text,
+            execution_state                blob,
+            execution_state_encoding       text,
+            transfer                       blob,
+            transfer_encoding              text,
+            replication                    blob,
+            replication_encoding           text,
+            timer                          blob,
+            timer_encoding                 text,
+            visibility_task_data           blob,
+            visibility_task_encoding       text,
+            next_event_id                  bigint,
+            range_id                       bigint,
+            activity_map                   map<bigint, blob>,
+            activity_map_encoding          text,
+            timer_map                      map<text, blob>,
+            timer_map_encoding             text,
+            child_executions_map           map<bigint, blob>,
+            child_executions_map_encoding  text,
+            request_cancel_map             map<bigint, blob>,
+            request_cancel_map_encoding    text,
+            signal_map                     map<bigint, blob>,
+            signal_map_encoding            text,
+            signal_requested               set<uuid>,
+            buffered_events_list           list<frozen<serialized_event_batch>>,
+            workflow_last_write_version    bigint,
+            workflow_state                 int,
+            checksum                       blob,
+            checksum_encoding              text,
+            db_record_version              bigint,
+            PRIMARY KEY  (shard_id, type, namespace_id, workflow_id, run_id, visibility_ts, task_id)
+          );
+  - tags:
+      phase: reset
+    params:
+      prepared: false
+      timeout: 10.0
+    statements:
+      - truncate-history-tree-table: |
+          TRUNCATE TABLE TEMPLATE(keyspace,lwt_ks).history_tree;
+      - truncate-history-node-table: |
+          TRUNCATE TABLE TEMPLATE(keyspace,lwt_ks).history_node;
+      - truncate-executions-table: |
+          TRUNCATE TABLE TEMPLATE(keyspace,lwt_ks).executions;
+
+  - tags:
+      phase: shard-init
+    params:
+      instrument: true
+      prepared: true
+      cl: 'LOCAL_QUORUM'
+      scl: 'LOCAL_SERIAL'
+    statements:
+      - name: create-shard
+        stmt: |
+          // templateCreateShardQuery
+          INSERT INTO TEMPLATE(keyspace,lwt_ks).executions
+          (shard_id, type, namespace_id, workflow_id, run_id, visibility_ts, task_id, shard, shard_encoding, range_id)
+          VALUES({shard_id}, {shard_type}, 10000000-1000-f000-f000-000000000000, '20000000-1000-f000-f000-000000000000', 30000000-1000-f000-f000-000000000000, {default_visibility_timestamp}, {row_type_shard_task_id}, {blob_data}, 'TEMPLATE(encoding,Proto3)', {range_id});
+
+  - tags:
+      phase: data-load
+    params:
+      instrument: true
+      prepared: true
+      timeout: 10.0
+      cl: 'LOCAL_QUORUM'
+      scl: 'LOCAL_SERIAL'
+    statements:
+
+      - name: create-history-tree
+        params:
+          ratio: 1
+        stmt: |
+          // v2templateInsertTree
+          INSERT INTO TEMPLATE(keyspace,lwt_ks).history_tree
+          (tree_id, branch_id, branch, branch_encoding)
+          VALUES ({tree_id}, {branch_id}, {blob_data}, 'TEMPLATE(encoding,Proto3)');
+
+      - name: create-current-workflow-execution
+        params:
+          ratio: 1
+        stmt: |
+          // templateCreateCurrentWorkflowExecutionQuery
+          INSERT INTO TEMPLATE(keyspace,lwt_ks).executions
+          (shard_id, type, namespace_id, workflow_id, run_id, visibility_ts, task_id, current_run_id, execution_state, execution_state_encoding, workflow_last_write_version, workflow_state)
+          VALUES({shard_id}, {execution_type}, {namespace_id}, {workflow_id}, 30000000-0000-f000-f000-000000000001, {default_visibility_timestamp}, {row_type_execution_task_id}, {run_id}, {blob_data}, 'TEMPLATE(encoding,Proto3)', {workflow_last_write_version}, {workflow_state}) USING TTL 0;
+
+      - name: create-workflow-execution
+        params:
+          ratio: 1
+        stmt: |
+          // templateCreateWorkflowExecutionQuery
+          INSERT INTO TEMPLATE(keyspace,lwt_ks).executions
+          (shard_id, namespace_id, workflow_id, run_id, type, execution, execution_encoding, execution_state, execution_state_encoding, next_event_id, db_record_version, visibility_ts, task_id, checksum, checksum_encoding)
+          VALUES({shard_id}, {namespace_id}, {workflow_id}, {run_id}, {execution_type}, {blob_data}, 'TEMPLATE(encoding,Proto3)', {blob_data}, 'TEMPLATE(encoding,Proto3)', {next_event_id}, {db_record_version}, {default_visibility_timestamp}, {row_type_execution_task_id}, {blob_data}, 'TEMPLATE(encoding,Proto3)');
+
+      - name: insert-activity-map
+        params:
+          ratio: 1
+        stmt: |
+          // templateUpdateActivityInfoQuery
+          UPDATE TEMPLATE(keyspace,lwt_ks).executions
+          SET activity_map[ {map_key} ] = {blob_data}, activity_map_encoding = 'TEMPLATE(encoding,Proto3)'
+          WHERE shard_id = {shard_id} and type = {execution_type} and namespace_id = {namespace_id} and workflow_id = {workflow_id} and run_id = {run_id} and visibility_ts = {default_visibility_timestamp} and task_id = {row_type_execution_task_id};
+
+      - name: insert-timer-map
+        params:
+          ratio: 1
+        stmt: |
+          // templateUpdateTimerInfoQuery
+          UPDATE TEMPLATE(keyspace,lwt_ks).executions
+          SET timer_map[ {timer_map_key} ] = {blob_data}, timer_map_encoding = 'TEMPLATE(encoding,Proto3)'
+          WHERE shard_id = {shard_id} and type = {execution_type} and namespace_id = {namespace_id} and workflow_id = {workflow_id} and run_id = {run_id} and visibility_ts = {default_visibility_timestamp} and task_id = {row_type_execution_task_id};
+
+      - name: insert-child-execution-map
+        params:
+          ratio: 1
+        stmt: |
+          // templateUpdateChildExecutionInfoQuery
+          UPDATE TEMPLATE(keyspace,lwt_ks).executions
+          SET child_executions_map[ {map_key} ] = {blob_data}, child_executions_map_encoding = 'TEMPLATE(encoding,Proto3)'
+          WHERE shard_id = {shard_id} and type = {execution_type} and namespace_id = {namespace_id} and workflow_id = {workflow_id} and run_id = {run_id} and visibility_ts = {default_visibility_timestamp} and task_id = {row_type_execution_task_id};
+
+      - name: insert-request-cancel-map
+        params:
+          ratio: 1
+        stmt: |
+          // templateUpdateRequestCancelInfoQuery
+          UPDATE TEMPLATE(keyspace,lwt_ks).executions
+          SET request_cancel_map[ {map_key} ] = {blob_data}, request_cancel_map_encoding = 'TEMPLATE(encoding,Proto3)'
+          WHERE shard_id = {shard_id} and type = {execution_type} and namespace_id = {namespace_id} and workflow_id = {workflow_id} and run_id = {run_id} and visibility_ts = {default_visibility_timestamp} and task_id = {row_type_execution_task_id};
+
+      - name: insert-signal-info-map
+        params:
+          ratio: 1
+        stmt: |
+          // templateUpdateSignalInfoQuery
+          UPDATE TEMPLATE(keyspace,lwt_ks).executions
+          SET signal_map[ {map_key} ] = {blob_data}, signal_map_encoding = 'TEMPLATE(encoding,Proto3)'
+          WHERE shard_id = {shard_id} and type = {execution_type} and namespace_id = {namespace_id} and workflow_id = {workflow_id} and run_id = {run_id} and visibility_ts = {default_visibility_timestamp} and task_id = {row_type_execution_task_id};
+
+      - name: insert-signal-requested-set
+        params:
+          ratio: 1
+        stmt: |
+          // templateUpdateSignalRequestedQuery
+          UPDATE TEMPLATE(keyspace,lwt_ks).executions
+          SET signal_requested = signal_requested + {signal_requested_add}
+          WHERE shard_id = {shard_id} and type = {execution_type} and namespace_id = {namespace_id} and workflow_id = {workflow_id} and run_id = {run_id} and visibility_ts = {default_visibility_timestamp} and task_id = {row_type_execution_task_id};
+
+      # Repeating Statements
+
+      - name: append-history-node
+        params:
+          ratio: TEMPLATE(update_ratio,75)
+        stmt: |
+          // v2templateUpsertHistoryNode
+          INSERT INTO TEMPLATE(keyspace,lwt_ks).history_node
+          (tree_id, branch_id, node_id, prev_txn_id, txn_id, data, data_encoding)
+          VALUES ({tree_id}, {branch_id}, {node_id}, {txn_id}, {txn_id}, {blob_data}, 'TEMPLATE(encoding,Proto3)');
+
+      - name: insert-transfer-task
+        params:
+          ratio: TEMPLATE(update_ratio,75)
+        stmt: |
+          // templateCreateTransferTaskQuery
+          INSERT INTO TEMPLATE(keyspace,lwt_ks).executions
+          (shard_id, type, namespace_id, workflow_id, run_id, transfer, transfer_encoding, visibility_ts, task_id)
+          VALUES({shard_id}, {transfer_type}, 10000000-3000-f000-f000-000000000000, '20000000-3000-f000-f000-000000000000', 30000000-3000-f000-f000-000000000000, {blob_data}, 'TEMPLATE(encoding,Proto3)', {default_visibility_timestamp}, {task_id});
+
+      - name: insert-timer-task
+        params:
+          ratio: TEMPLATE(update_ratio,75)
+        stmt: |
+          // templateCreateTimerTaskQuery
+          INSERT INTO TEMPLATE(keyspace,lwt_ks).executions
+          (shard_id, type, namespace_id, workflow_id, run_id, timer, timer_encoding, visibility_ts, task_id)
+          VALUES({shard_id}, {timer_type}, 10000000-4000-f000-f000-000000000000, '20000000-4000-f000-f000-000000000000', 30000000-4000-f000-f000-000000000000, {blob_data}, 'TEMPLATE(encoding,Proto3)', {timer_ts}, {task_id});
+
+      - name: insert-replication-task
+        params:
+          ratio: TEMPLATE(update_ratio,75)
+        stmt: |
+          // templateCreateReplicationTaskQuery
+          INSERT INTO TEMPLATE(keyspace,lwt_ks).executions
+          (shard_id, type, namespace_id, workflow_id, run_id, replication, replication_encoding, visibility_ts, task_id)
+          VALUES({shard_id}, {replication_type}, 10000000-5000-f000-f000-000000000000, '20000000-5000-f000-f000-000000000000', 30000000-5000-f000-f000-000000000000, {blob_data}, 'TEMPLATE(encoding,Proto3)', {default_visibility_timestamp}, {task_id});
+
+      - name: insert-visibility-task
+        params:
+          ratio: TEMPLATE(update_ratio,75)
+        stmt: |
+          // templateCreateVisibilityTaskQuery
+          INSERT INTO TEMPLATE(keyspace,lwt_ks).executions
+          (shard_id, type, namespace_id, workflow_id, run_id, visibility_task_data, visibility_task_encoding, visibility_ts, task_id)
+          VALUES({shard_id}, {visibility_type}, 10000000-6000-f000-f000-000000000000, '20000000-6000-f000-f000-000000000000', 30000000-6000-f000-f000-000000000000, {blob_data}, 'TEMPLATE(encoding,Proto3)', {default_visibility_timestamp}, {task_id});
+
+  - tags:
+      phase: live-data
+      type: read
+    params:
+      instrument: true
+      prepared: true
+      cl: 'LOCAL_QUORUM'
+      scl: 'LOCAL_SERIAL'
+    statements:
+      - name: read-history-branch
+        params:
+          ratio: 7
+        stmt: |
+          // v2templateReadHistoryNode
+          SELECT node_id, prev_txn_id, txn_id, data, data_encoding FROM TEMPLATE(keyspace,lwt_ks).history_node
+          WHERE tree_id = {ld_tree_id} AND branch_id = {ld_branch_id} AND node_id >= {ld_node_id} AND node_id < {ld_max_node_id}
+
+      - name: get-timer-index-tasks
+        params:
+          ratio: 17
+        stmt: |
+          // templateGetTimerTasksQuery
+          SELECT timer, timer_encoding FROM TEMPLATE(keyspace,lwt_ks).executions
+          WHERE shard_id = {shard_id} and type = {timer_type} and namespace_id = 10000000-4000-f000-f000-000000000000 and workflow_id = '20000000-4000-f000-f000-000000000000' and run_id = 30000000-4000-f000-f000-000000000000 and visibility_ts >= {ld_timer_ts} and visibility_ts < {ld_timer_ts}
+
+      - name: get-transfer-tasks
+        params:
+          ratio: 10
+        stmt: |
+          // templateGetTransferTasksQuery
+          SELECT transfer, transfer_encoding FROM TEMPLATE(keyspace,lwt_ks).executions
+          WHERE shard_id = {shard_id} and type = {transfer_type} and namespace_id = 10000000-3000-f000-f000-000000000000 and workflow_id = '20000000-3000-f000-f000-000000000000' and run_id = 30000000-3000-f000-f000-000000000000 and visibility_ts = {default_visibility_timestamp} and task_id = {ld_task_id}
+
+      - name: get-visibility-tasks
+        params:
+          ratio: 2
+        stmt: |
+          // templateGetVisibilityTasksQuery
+          SELECT visibility_task_data, visibility_task_encoding FROM TEMPLATE(keyspace,lwt_ks).executions
+          WHERE shard_id = {shard_id} and type = {visibility_type} and namespace_id = 10000000-6000-f000-f000-000000000000 and workflow_id = '20000000-6000-f000-f000-000000000000' and run_id = 30000000-6000-f000-f000-000000000000 and visibility_ts = {default_visibility_timestamp} and task_id = {ld_task_id}
+
+      - name: get-current-execution
+        params:
+          ratio: 3
+        stmt: |
+          // templateGetCurrentExecutionQuery
+          SELECT current_run_id, execution, execution_encoding, execution_state, execution_state_encoding, workflow_last_write_version FROM TEMPLATE(keyspace,lwt_ks).executions
+          WHERE shard_id = {shard_id} and type = {execution_type} and namespace_id = {ld_namespace_id} and workflow_id = {ld_workflow_id} and run_id = 30000000-0000-f000-f000-000000000001 and visibility_ts = {default_visibility_timestamp} and task_id = {row_type_execution_task_id}
+
+      - name: get-workflow-execution
+        params:
+          ratio: 1
+        stmt: |
+          // templateGetWorkflowExecutionQuery
+          SELECT execution, execution_encoding, execution_state, execution_state_encoding, next_event_id, activity_map, activity_map_encoding, timer_map, timer_map_encoding, child_executions_map, child_executions_map_encoding, request_cancel_map, request_cancel_map_encoding, signal_map, signal_map_encoding, signal_requested, buffered_events_list, checksum, checksum_encoding, db_record_version FROM TEMPLATE(keyspace,lwt_ks).executions
+          WHERE shard_id = {shard_id} and type = {execution_type} and namespace_id = {ld_namespace_id} and workflow_id = {ld_workflow_id} and run_id = {ld_run_id} and visibility_ts = {default_visibility_timestamp} and task_id = {row_type_execution_task_id}
+
+  - tags:
+      phase: live-data
+      type: write
+    params:
+      instrument: true
+      prepared: true
+      cl: 'LOCAL_QUORUM'
+      scl: 'LOCAL_SERIAL'
+    statements:
+      - name: update-execution
+        params:
+          ratio: 60
+        stmt: |
+          BEGIN BATCH
+
+          // templateUpdateCurrentWorkflowExecutionQuery
+          UPDATE TEMPLATE(keyspace,lwt_ks).executions USING TTL 0
+          SET current_run_id = {ld_run_id}, execution_state = {blob_data}, execution_state_encoding = 'TEMPLATE(encoding,Proto3)', workflow_last_write_version = {workflow_last_write_version}, workflow_state = {workflow_state}
+          WHERE shard_id = {shard_id} and type = {execution_type} and namespace_id = {ld_namespace_id} and workflow_id = {ld_workflow_id} and run_id = 30000000-0000-f000-f000-000000000001 and visibility_ts = {default_visibility_timestamp} and task_id = {row_type_execution_task_id}
+          IF current_run_id = {ld_run_id};
+
+          // templateUpdateWorkflowExecutionQuery
+          UPDATE TEMPLATE(keyspace,lwt_ks).executions
+          SET execution = {blob_data} , execution_encoding = 'TEMPLATE(encoding,Proto3)' , execution_state = {blob_data} , execution_state_encoding = 'TEMPLATE(encoding,Proto3)' , next_event_id = {next_event_id} , db_record_version = {db_record_version} , checksum = {blob_data} , checksum_encoding = 'TEMPLATE(encoding,Proto3)'
+          WHERE shard_id = {shard_id} and type = {execution_type} and namespace_id = {ld_namespace_id} and workflow_id = {ld_workflow_id} and run_id = {ld_run_id} and visibility_ts = {default_visibility_timestamp} and task_id = {row_type_execution_task_id}
+          IF db_record_version = {db_record_version};
+
+          // templateUpdateActivityInfoQuery
+          UPDATE TEMPLATE(keyspace,lwt_ks).executions
+          SET activity_map[ {add_map_key} ] = {blob_data}, activity_map_encoding = 'TEMPLATE(encoding,Proto3)'
+          WHERE shard_id = {shard_id} and type = {execution_type} and namespace_id = {ld_namespace_id} and workflow_id = {ld_workflow_id} and run_id = {ld_run_id} and visibility_ts = {default_visibility_timestamp} and task_id = {row_type_execution_task_id};
+
+          // templateDeleteActivityInfoQuery
+          DELETE activity_map[ {delete_map_key} ]
+          FROM TEMPLATE(keyspace,lwt_ks).executions
+          WHERE shard_id = {shard_id} and type = {execution_type} and namespace_id = {ld_namespace_id} and workflow_id = {ld_workflow_id} and run_id = {ld_run_id} and visibility_ts = {default_visibility_timestamp} and task_id = {row_type_execution_task_id};
+
+          // templateUpdateTimerInfoQuery
+          UPDATE TEMPLATE(keyspace,lwt_ks).executions
+          SET timer_map[ {timer_add_map_key} ] = {blob_data}, timer_map_encoding = 'TEMPLATE(encoding,Proto3)'
+          WHERE shard_id = {shard_id} and type = {execution_type} and namespace_id = {ld_namespace_id} and workflow_id = {ld_workflow_id} and run_id = {ld_run_id} and visibility_ts = {default_visibility_timestamp} and task_id = {row_type_execution_task_id};
+
+          // templateDeleteTimerInfoQuery
+          DELETE timer_map[ {timer_delete_map_key} ]
+          FROM TEMPLATE(keyspace,lwt_ks).executions
+          WHERE shard_id = {shard_id} and type = {execution_type} and namespace_id = {ld_namespace_id} and workflow_id = {ld_workflow_id} and run_id = {ld_run_id} and visibility_ts = {default_visibility_timestamp} and task_id = {row_type_execution_task_id};
+
+          // templateUpdateChildExecutionInfoQuery
+          UPDATE TEMPLATE(keyspace,lwt_ks).executions
+          SET child_executions_map[ {add_map_key} ] = {blob_data}, child_executions_map_encoding = 'TEMPLATE(encoding,Proto3)'
+          WHERE shard_id = {shard_id} and type = {execution_type} and namespace_id = {ld_namespace_id} and workflow_id = {ld_workflow_id} and run_id = {ld_run_id} and visibility_ts = {default_visibility_timestamp} and task_id = {row_type_execution_task_id};
+
+          // templateDeleteChildExecutionInfoQuery
+          DELETE child_executions_map[ {delete_map_key} ]
+          FROM TEMPLATE(keyspace,lwt_ks).executions
+          WHERE shard_id = {shard_id} and type = {execution_type} and namespace_id = {ld_namespace_id} and workflow_id = {ld_workflow_id} and run_id = {ld_run_id} and visibility_ts = {default_visibility_timestamp} and task_id = {row_type_execution_task_id};
+
+          // templateUpdateRequestCancelInfoQuery
+          UPDATE TEMPLATE(keyspace,lwt_ks).executions
+          SET request_cancel_map[ {add_map_key} ] = {blob_data}, request_cancel_map_encoding = 'TEMPLATE(encoding,Proto3)'
+          WHERE shard_id = {shard_id} and type = {execution_type} and namespace_id = {ld_namespace_id} and workflow_id = {ld_workflow_id} and run_id = {ld_run_id} and visibility_ts = {default_visibility_timestamp} and task_id = {row_type_execution_task_id};
+
+          // templateDeleteRequestCancelInfoQuery
+          DELETE request_cancel_map[ {delete_map_key} ]
+          FROM TEMPLATE(keyspace,lwt_ks).executions
+          WHERE shard_id = {shard_id} and type = {execution_type} and namespace_id = {ld_namespace_id} and workflow_id = {ld_workflow_id} and run_id = {ld_run_id} and visibility_ts = {default_visibility_timestamp} and task_id = {row_type_execution_task_id};
+
+          // templateUpdateSignalInfoQuery
+          UPDATE TEMPLATE(keyspace,lwt_ks).executions
+          SET signal_map[ {add_map_key} ] = {blob_data}, signal_map_encoding = 'TEMPLATE(encoding,Proto3)'
+          WHERE shard_id = {shard_id} and type = {execution_type} and namespace_id = {ld_namespace_id} and workflow_id = {ld_workflow_id} and run_id = {ld_run_id} and visibility_ts = {default_visibility_timestamp} and task_id = {row_type_execution_task_id};
+
+          // templateDeleteSignalInfoQuery
+          DELETE signal_map[ {delete_map_key} ]
+          FROM TEMPLATE(keyspace,lwt_ks).executions
+          WHERE shard_id = {shard_id} and type = {execution_type} and namespace_id = {ld_namespace_id} and workflow_id = {ld_workflow_id} and run_id = {ld_run_id} and visibility_ts = {default_visibility_timestamp} and task_id = {row_type_execution_task_id};
+
+          // templateUpdateSignalRequestedQuery
+          UPDATE TEMPLATE(keyspace,lwt_ks).executions
+          SET signal_requested = signal_requested + {signal_requested_add}
+          WHERE shard_id = {shard_id} and type = {execution_type} and namespace_id = {ld_namespace_id} and workflow_id = {ld_workflow_id} and run_id = {ld_run_id} and visibility_ts = {default_visibility_timestamp} and task_id = {row_type_execution_task_id};
+
+          // templateDeleteWorkflowExecutionSignalRequestedQuery
+          UPDATE TEMPLATE(keyspace,lwt_ks).executions
+          SET signal_requested = signal_requested - {signal_requested_delete}
+          WHERE shard_id = {shard_id} and type = {execution_type} and namespace_id = {ld_namespace_id} and workflow_id = {ld_workflow_id} and run_id = {ld_run_id} and visibility_ts = {default_visibility_timestamp} and task_id = {row_type_execution_task_id};
+
+          // templateCreateTransferTaskQuery
+          INSERT INTO TEMPLATE(keyspace,lwt_ks).executions
+          (shard_id, type, namespace_id, workflow_id, run_id, transfer, transfer_encoding, visibility_ts, task_id)
+          VALUES({shard_id}, {transfer_type}, 10000000-3000-f000-f000-000000000000, '20000000-3000-f000-f000-000000000000', 30000000-3000-f000-f000-000000000000, {blob_data}, 'TEMPLATE(encoding,Proto3)', {default_visibility_timestamp}, {ld_task_id}) USING TTL 864000;
+
+          // templateCreateTimerTaskQuery
+          INSERT INTO TEMPLATE(keyspace,lwt_ks).executions
+          (shard_id, type, namespace_id, workflow_id, run_id, timer, timer_encoding, visibility_ts, task_id)
+          VALUES({shard_id}, {timer_type}, 10000000-4000-f000-f000-000000000000, '20000000-4000-f000-f000-000000000000', 30000000-4000-f000-f000-000000000000, {blob_data}, 'TEMPLATE(encoding,Proto3)', {ld_timer_ts}, {task_id}) USING TTL 864000;
+
+          // templateCreateReplicationTaskQuery
+          INSERT INTO TEMPLATE(keyspace,lwt_ks).executions
+          (shard_id, type, namespace_id, workflow_id, run_id, replication, replication_encoding, visibility_ts, task_id)
+          VALUES({shard_id}, {replication_type}, 10000000-5000-f000-f000-000000000000, '20000000-5000-f000-f000-000000000000', 30000000-5000-f000-f000-000000000000, {blob_data}, 'TEMPLATE(encoding,Proto3)', {default_visibility_timestamp}, {ld_task_id}) USING TTL 864000;
+
+          // templateCreateVisibilityTaskQuery
+          INSERT INTO TEMPLATE(keyspace,lwt_ks).executions
+          (shard_id, type, namespace_id, workflow_id, run_id, visibility_task_data, visibility_task_encoding, visibility_ts, task_id)
+          VALUES({shard_id}, {visibility_type}, 10000000-6000-f000-f000-000000000000, '20000000-6000-f000-f000-000000000000', 30000000-6000-f000-f000-000000000000, {blob_data}, 'TEMPLATE(encoding,Proto3)', {default_visibility_timestamp}, {ld_task_id}) USING TTL 864000;
+
+          // templateUpdateLeaseQuery
+          UPDATE TEMPLATE(keyspace,lwt_ks).executions
+          SET range_id = {range_id}
+          WHERE shard_id = {shard_id} and type = {shard_type} and namespace_id = 10000000-1000-f000-f000-000000000000 and workflow_id = '20000000-1000-f000-f000-000000000000' and run_id = 30000000-1000-f000-f000-000000000000 and visibility_ts = {default_visibility_timestamp} and task_id = {row_type_shard_task_id}
+          IF range_id = {range_id};
+
+          APPLY BATCH;

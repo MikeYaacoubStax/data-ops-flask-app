@@ -62,6 +62,7 @@ python -m venv data-ops-venv
 source data-ops-venv/bin/activate  # On Windows: data-ops-venv\Scripts\activate
 
 # Install dependencies
+cd app
 pip install -r requirements.txt
 ```
 
@@ -82,6 +83,7 @@ docker run --rm nosqlbench/nosqlbench:5.21.8-preview nb5 --list-drivers
 ### 3. Verify Installation
 ```bash
 # Check all prerequisites and Docker setup
+cd app
 python run_demo.py
 ```
 
@@ -89,11 +91,13 @@ python run_demo.py
 
 ### Option 1: Using the Launcher (Recommended)
 ```bash
+cd app
 python run_demo.py
 ```
 
 ### Option 2: Direct Flask Run
 ```bash
+cd app
 python app.py
 ```
 
@@ -243,6 +247,7 @@ cd docker
 
 **Option A: Flask App (All workloads)**
 ```bash
+cd app
 python app.py  # Uses local nb5 command
 ```
 
@@ -300,7 +305,7 @@ docker info
 ### State Recovery
 If the application state becomes corrupted:
 ```bash
-# Remove state file to reset
+# Remove state file to reset (from project root)
 rm app_state.json
 ```
 
@@ -389,6 +394,43 @@ python -c "from services.benchmark_manager import BenchmarkManager; print('OK')"
 - Start with small workloads to verify setup
 - Gradually increase load to find performance limits
 - Monitor system resources during tests
+
+## 📁 Project Structure
+
+This project is organized into three main deployment options:
+
+```
+data-ops-flask-app/
+├── app/                          # 🌐 Flask Web Application
+│   ├── app.py                    # Main Flask application
+│   ├── config.py                 # Configuration and workload definitions
+│   ├── run_demo.py              # Application launcher
+│   ├── requirements.txt         # Python dependencies
+│   ├── services/                # Core service modules
+│   ├── templates/               # HTML templates
+│   ├── static/                  # Frontend assets
+│   └── README.md                # App-specific documentation
+├── docker/                      # 🐳 Docker Infrastructure
+│   ├── docker-compose.yml       # Main compose file
+│   ├── manage.sh                # Management script
+│   ├── monitoring/              # Grafana dashboards
+│   ├── databases/               # Database configurations
+│   └── README.md                # Docker-specific documentation
+├── helm/                        # ☸️ Kubernetes Helm Chart (planned)
+├── demo_workloads/              # 📊 Shared NoSQLBench workload definitions
+├── logs/                        # 📝 Shared execution logs
+├── results/                     # 📈 Shared benchmark results
+├── app_state.json              # 💾 Application state persistence
+└── README.md                    # Main project documentation
+```
+
+### Deployment Options
+
+1. **Flask App** (`app/`): Interactive web interface for workload management
+2. **Docker Infrastructure** (`docker/`): Complete containerized testing environment
+3. **Helm Chart** (`helm/`): Kubernetes-native deployment (planned)
+
+Each option can be used independently or together based on your deployment needs.
 
 ## 📚 Additional Resources
 

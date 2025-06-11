@@ -1,0 +1,111 @@
+scenarios:
+  setup:
+    schema: run driver=cql tags==phase:schema-astra threads==1 cycles==UNDEF
+    rampup: run driver=cql tags==phase:main,type:write cycles==TEMPLATE(rampup_cycles,10000) threads=auto
+  live:
+    sai_reads: run driver=cql tags==phase:main,type:read threads=auto cycles==TEMPLATE(read_cycles,3B) ts_window=TEMPLATE(ts_window,10) prior_inserts=TEMPLATE(prior_inserts,10000) price_window=TEMPLATE(price_window,10)
+  default:
+    schema: run driver=cql tags==phase:schema-astra threads==1 cycles==UNDEF
+    rampup: run driver=cql tags==phase:main,type:write cycles==TEMPLATE(rampup_cycles,10000) threads=auto
+    sai_reads: run driver=cql tags==phase:main,type:read threads=auto cycles==TEMPLATE(read_cycles,3B) ts_window=TEMPLATE(ts_window,10) prior_inserts=TEMPLATE(prior_inserts,10000) price_window=TEMPLATE(price_window,10)
+
+bindings:
+  customer_id: HashRange(0, TEMPLATE(customers,1000000)L); ToUUID();
+  order_id: Add(TEMPLATE(resume_cycle,0)L); ToUUID();
+  order_ts: Add(TEMPLATE(resume_cycle,0)L); Mul(1000); StartingEpochMillis('2000-01-01 00:00:01'); ToJavaInstant();
+  order_items: ListSizedHashed(HashInterval(1, 50), HashRange(0, 1000));
+  order_total: HashRange(0, 5000); ToFloat();
+
+  constrained_order_id: HashRange(TEMPLATE(prior_inserts,10000)); ToUUID();
+
+  order_contains_item: HashRange(0, 1000); ToInt();
+
+  order_ts_min: HashRange(TEMPLATE(ts_window,10), TEMPLATE(prior_inserts,10000)); Add(-TEMPLATE(ts_window,10)); Mul(1000); StartingEpochMillis('2000-01-01 00:00:01'); ToJavaInstant();
+  order_ts_max: HashRange(TEMPLATE(ts_window,10), TEMPLATE(prior_inserts,10000)); Mul(1000); StartingEpochMillis('2000-01-01 00:00:01'); ToJavaInstant();
+
+  order_total_min: HashRange(TEMPLATE(price_window,10), 5000); Add(-TEMPLATE(price_window,10)); ToFloat();
+  order_total_max: HashRange(TEMPLATE(price_window,10), 5000); ToFloat();
+
+blocks:
+  - tags:
+      phase: schema-astra
+    params:
+      prepared: false
+      timeout: 10.0
+    statements:
+      - create-keyspace: |-
+          CREATE KEYSPACE IF NOT EXISTS TEMPLATE(keyspace,sai_test)
+          WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '1'};
+      - create-table: |-
+          CREATE TABLE IF NOT EXISTS TEMPLATE(keyspace,sai_test).customer_orders (
+            customer_id uuid,
+            order_id uuid,
+            order_ts timestamp,
+            order_items list<int>,
+            order_total float,
+            PRIMARY KEY ((customer_id), order_id)
+          );
+      - create-order-date-index: |-
+          CREATE CUSTOM INDEX IF NOT EXISTS customer_orders_by_date ON TEMPLATE(keyspace,sai_test).customer_orders (order_ts) USING 'StorageAttachedIndex';
+      - create-order-items-index: |-
+          CREATE CUSTOM INDEX IF NOT EXISTS customer_orders_by_item ON TEMPLATE(keyspace,sai_test).customer_orders (order_items) USING 'StorageAttachedIndex';
+      - create-order-total-index: |-
+          CREATE CUSTOM INDEX IF NOT EXISTS customer_orders_by_total ON TEMPLATE(keyspace,sai_test).customer_orders (order_total) USING 'StorageAttachedIndex';
+  # Truncation
+  - tags:
+      phase: reset
+    params:
+      prepared: false
+    statements:
+      - truncate_soil_data: |
+          TRUNCATE TEMPLATE(keyspace,sai_test).customer_orders;
+  # Write
+  - tags:
+      phase: main
+      type: write
+    params:
+      ratio: 1
+      cl: 'LOCAL_QUORUM'
+      instrument: true
+    statements:
+      - insert-customer-order: >-
+          INSERT INTO TEMPLATE(keyspace,sai_test).customer_orders
+          (customer_id, order_id, order_ts, order_items, order_total)
+          VALUES
+          ({customer_id}, {order_id}, {order_ts}, {order_items}, {order_total});
+  # Reads
+  - tags:
+      phase: main
+      type: read
+    params:
+      ratio: 1
+      cl: 'LOCAL_QUORUM'
+      instrument: true
+    statements:
+      - range-read-orders-within-date: >-
+          SELECT * from TEMPLATE(keyspace,sai_test).customer_orders WHERE
+          order_ts >= {order_ts_min} AND order_ts <= {order_ts_max} LIMIT 10 ALLOW FILTERING;
+
+  - tags:
+      phase: main
+      type: read
+    params:
+      ratio: 1
+      cl: 'LOCAL_QUORUM'
+      instrument: true
+    statements:
+      - range-read-orders-with-item: >-
+          SELECT * from TEMPLATE(keyspace,sai_test).customer_orders WHERE
+          order_items CONTAINS {order_contains_item} LIMIT 10 ALLOW FILTERING;
+
+  - tags:
+      phase: main
+      type: read
+    params:
+      ratio: 1
+      cl: 'LOCAL_QUORUM'
+      instrument: true
+    statements:
+      - range-read-orders-within-price: >-
+          SELECT * from TEMPLATE(keyspace,sai_test).customer_orders WHERE
+          order_total >= {order_total_min} AND order_total <= {order_total_max} LIMIT 10 ALLOW FILTERING;

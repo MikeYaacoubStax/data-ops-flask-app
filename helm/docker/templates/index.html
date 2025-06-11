@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NoSQLBench Kubernetes Demo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+            color: white;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 300;
+            letter-spacing: -0.5px;
+        }
+        .header p {
+            margin: 8px 0 0 0;
+            font-size: 1.1rem;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+            overflow: hidden;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+        }
+        .card-header {
+            padding: 24px 24px 16px 24px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .card-title {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 500;
+            color: #1a1a1a;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .card-content {
+            padding: 24px;
+        }
+        .btn {
+            background-color: #2196f3;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            margin: 4px;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn:hover {
+            background-color: #1976d2;
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
+            transform: translateY(-1px);
+        }
+        .btn:disabled {
+            background-color: #e0e0e0;
+            color: #9e9e9e;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+        .btn-success {
+            background-color: #4caf50;
+            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+        }
+        .btn-success:hover {
+            background-color: #388e3c;
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+        }
+        .btn-danger {
+            background-color: #f44336;
+            box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3);
+        }
+        .btn-danger:hover {
+            background-color: #d32f2f;
+            box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
+        }
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 12px;
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s ease;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #2196f3;
+        }
+        .form-select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+        .database-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            margin: 8px 0;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #2196f3;
+        }
+        .database-item.verified {
+            border-left-color: #4caf50;
+            background: #f1f8e9;
+        }
+        .database-item.unverified {
+            border-left-color: #ff9800;
+            background: #fff3e0;
+        }
+        .database-info {
+            flex: 1;
+        }
+        .database-name {
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        .database-details {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .database-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 4px;
+        }
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .status-verified {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+        .status-unverified {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
+        .workload-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 24px;
+        }
+        .workload-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            border-left: 4px solid #2196f3;
+            overflow: hidden;
+        }
+        .workload-header {
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .workload-title {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #1a1a1a;
+        }
+        .workload-description {
+            margin: 4px 0 0 0;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .workload-content {
+            padding: 20px;
+        }
+        .scenario-section {
+            margin-bottom: 20px;
+        }
+        .scenario-title {
+            font-weight: 500;
+            margin-bottom: 12px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .scenario-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #2196f3;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .alert {
+            padding: 16px 20px;
+            margin: 16px 0;
+            border-radius: 12px;
+            border-left: 4px solid;
+            font-size: 0.95rem;
+        }
+        .alert-info {
+            background-color: #e3f2fd;
+            border-left-color: #2196f3;
+            color: #1565c0;
+        }
+        .alert-warning {
+            background-color: #fff3e0;
+            border-left-color: #ff9800;
+            color: #ef6c00;
+        }
+        .alert-success {
+            background-color: #e8f5e8;
+            border-left-color: #4caf50;
+            color: #2e7d32;
+        }
+        .alert-error {
+            background-color: #ffebee;
+            border-left-color: #f44336;
+            color: #c62828;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            color: #666;
+        }
+        .empty-state .material-icons {
+            font-size: 64px;
+            color: #e0e0e0;
+            margin-bottom: 16px;
+        }
+        .empty-state h3 {
+            margin: 0 0 8px 0;
+            font-weight: 400;
+            color: #999;
+        }
+        .empty-state p {
+            margin: 0;
+            font-size: 0.9rem;
+        }
+        .job-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            margin: 8px 0;
+            background: #f1f8e9;
+            border-radius: 8px;
+            border-left: 4px solid #4caf50;
+        }
+        .job-info {
+            flex: 1;
+        }
+        .job-title {
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        .job-details {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .job-runtime {
+            font-family: 'Roboto Mono', monospace;
+            color: #4caf50;
+            font-weight: 500;
+            font-size: 0.9rem;
+            background: rgba(76, 175, 80, 0.1);
+            padding: 4px 8px;
+            border-radius: 6px;
+            margin-left: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="material-icons" style="font-size: 2.5rem; vertical-align: middle; margin-right: 16px;">rocket_launch</i>NoSQLBench Kubernetes</h1>
+            <p>Simplified NoSQLBench workload management</p>
+        </div>
+
+        <!-- Database Configuration Section -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <i class="material-icons">storage</i>
+                    Database Configuration
+                </h2>
+            </div>
+            <div class="card-content">
+                <div id="databaseSection">
+                    <!-- Database management will be populated here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Available Workloads Section -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <i class="material-icons">assessment</i>
+                    Available Workloads
+                </h2>
+            </div>
+            <div class="card-content">
+                <div id="workloadSection">
+                    <!-- Workload management will be populated here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Running Jobs Section -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <i class="material-icons">speed</i>
+                    Running Jobs
+                </h2>
+            </div>
+            <div class="card-content">
+                <div id="jobsSection">
+                    <!-- Running jobs will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Socket.IO and JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script>
+        // Initialize Socket.IO connection
+        const socket = io();
+        
+        // Application state
+        let appState = {
+            kubernetes: { ready: false },
+            databases: { configured: false, list: {} },
+            workloads: { available: [] },
+            jobs: { running: {} }
+        };
+
+        // Socket event handlers
+        socket.on('connect', function() {
+            console.log('Connected to server');
+        });
+
+        socket.on('status_update', function(status) {
+            console.log('Status update received:', status);
+            appState = status;
+            updateUI();
+        });
+
+        socket.on('disconnect', function() {
+            console.log('Disconnected from server');
+        });
+
+        // Update UI based on current state
+        function updateUI() {
+            updateDatabaseSection();
+            updateWorkloadSection();
+            updateJobsSection();
+        }
+
+        function updateDatabaseSection() {
+            const section = document.getElementById('databaseSection');
+            const databases = appState.databases?.list || {};
+
+            let html = `
+                <div class="form-group">
+                    <h4>Add Database Endpoint</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 12px; align-items: end;">
+                        <div>
+                            <label class="form-label">Database Type</label>
+                            <select id="dbType" class="form-select">
+                                <option value="cassandra">Cassandra</option>
+                                <option value="opensearch">OpenSearch</option>
+                                <option value="presto">Presto/Trino</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label">Name</label>
+                            <input type="text" id="dbName" class="form-input" placeholder="My Database">
+                        </div>
+                        <div>
+                            <label class="form-label">Host</label>
+                            <input type="text" id="dbHost" class="form-input" placeholder="localhost">
+                        </div>
+                        <div>
+                            <label class="form-label">Port</label>
+                            <input type="number" id="dbPort" class="form-input" placeholder="9042">
+                        </div>
+                        <div>
+                            <button class="btn btn-success" onclick="addDatabase()">
+                                <i class="material-icons">add</i>
+                                Add
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 24px;">
+                    <h4>Configured Databases</h4>
+            `;
+
+            if (Object.keys(databases).length === 0) {
+                html += `
+                    <div class="empty-state">
+                        <i class="material-icons">storage</i>
+                        <h3>No Databases Configured</h3>
+                        <p>Add database endpoints to start running workloads</p>
+                    </div>
+                `;
+            } else {
+                Object.entries(databases).forEach(([dbId, db]) => {
+                    const verified = db.verified;
+                    html += `
+                        <div class="database-item ${verified ? 'verified' : 'unverified'}">
+                            <div class="database-info">
+                                <div class="database-name">${db.name}</div>
+                                <div class="database-details">${db.type} - ${db.host}:${db.port}</div>
+                                <div class="database-status">
+                                    <span class="status-badge ${verified ? 'status-verified' : 'status-unverified'}">
+                                        ${verified ? 'Verified' : 'Unverified'}
+                                    </span>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn btn-small" onclick="testDatabase('${dbId}')" ${verified ? 'disabled' : ''}>
+                                    <i class="material-icons">wifi_tethering</i>
+                                    Test
+                                </button>
+                                <button class="btn btn-danger btn-small" onclick="removeDatabase('${dbId}')">
+                                    <i class="material-icons">delete</i>
+                                    Remove
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            html += '</div>';
+            section.innerHTML = html;
+        }
+
+        function updateWorkloadSection() {
+            const section = document.getElementById('workloadSection');
+            const workloads = appState.workloads?.available || [];
+            const databases = appState.databases?.list || {};
+            const verifiedDatabases = Object.entries(databases).filter(([id, db]) => db.verified);
+
+            if (verifiedDatabases.length === 0) {
+                section.innerHTML = `
+                    <div class="alert alert-warning">
+                        <strong>Database Configuration Required</strong><br>
+                        Please add and verify database endpoints to run workloads.
+                    </div>
+                `;
+                return;
+            }
+
+            if (workloads.length === 0) {
+                section.innerHTML = `
+                    <div class="empty-state">
+                        <i class="material-icons">assessment</i>
+                        <h3>No Workloads Available</h3>
+                        <p>Loading workload definitions...</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '<div class="workload-grid">';
+
+            workloads.forEach(workload => {
+                const compatibleDbs = verifiedDatabases.filter(([id, db]) =>
+                    db.type === workload.database_type
+                );
+
+                html += `
+                    <div class="workload-card">
+                        <div class="workload-header">
+                            <div class="workload-title">${workload.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</div>
+                            <div class="workload-description">${workload.description}</div>
+                        </div>
+                        <div class="workload-content">
+                `;
+
+                if (compatibleDbs.length === 0) {
+                    html += `
+                        <div class="alert alert-warning">
+                            No compatible ${workload.database_type} databases configured
+                        </div>
+                    `;
+                } else {
+                    // Setup scenario
+                    html += `
+                        <div class="scenario-section">
+                            <div class="scenario-title">
+                                <i class="material-icons">build</i>
+                                Setup Scenario
+                            </div>
+                            <div class="scenario-controls">
+                                <select id="setupDb_${workload.name}" class="form-select" style="width: 200px;">
+                                    ${compatibleDbs.map(([id, db]) =>
+                                        `<option value="${id}">${db.name}</option>`
+                                    ).join('')}
+                                </select>
+                                <button class="btn" onclick="startJob('${workload.name}', 'setup')">
+                                    <i class="material-icons">play_arrow</i>
+                                    Run Setup
+                                </button>
+                            </div>
+                        </div>
+                    `;
+
+                    // Live scenario
+                    html += `
+                        <div class="scenario-section">
+                            <div class="scenario-title">
+                                <i class="material-icons">speed</i>
+                                Live Scenario
+                            </div>
+                            <div class="scenario-controls">
+                                <select id="liveDb_${workload.name}" class="form-select" style="width: 200px;">
+                                    ${compatibleDbs.map(([id, db]) =>
+                                        `<option value="${id}">${db.name}</option>`
+                                    ).join('')}
+                                </select>
+                                <input type="number" id="cycleRate_${workload.name}" class="form-input"
+                                       value="10" min="1" max="10000" style="width: 100px;" placeholder="Rate">
+                                <button class="btn btn-success" onclick="startJob('${workload.name}', 'live')">
+                                    <i class="material-icons">play_arrow</i>
+                                    Run Live
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            section.innerHTML = html;
+        }
+
+        function updateJobsSection() {
+            const section = document.getElementById('jobsSection');
+            const jobs = appState.jobs?.running || {};
+
+            if (Object.keys(jobs).length === 0) {
+                section.innerHTML = `
+                    <div class="empty-state">
+                        <i class="material-icons">speed</i>
+                        <h3>No Jobs Running</h3>
+                        <p>Start workload scenarios to see running jobs here</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            Object.entries(jobs).forEach(([jobId, job]) => {
+                const runtime = job.runtime ? formatRuntime(job.runtime) : 'Starting...';
+                html += `
+                    <div class="job-item">
+                        <div class="job-info">
+                            <div class="job-title">${job.workload.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} - ${job.scenario}</div>
+                            <div class="job-details">
+                                Database: ${job.database_name || 'Unknown'} |
+                                ${job.scenario === 'live' ? `Cycle Rate: ${job.cycle_rate}` : 'Setup Phase'}
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center;">
+                            <div class="job-runtime">${runtime}</div>
+                            <button class="btn btn-danger btn-small" onclick="stopJob('${jobId}')" style="margin-left: 12px;">
+                                <i class="material-icons">stop</i>
+                                Stop
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            section.innerHTML = html;
+        }
+
+        // API Functions
+        function addDatabase() {
+            const type = document.getElementById('dbType').value;
+            const name = document.getElementById('dbName').value;
+            const host = document.getElementById('dbHost').value;
+            const port = document.getElementById('dbPort').value;
+
+            if (!name || !host || !port) {
+                showAlert('Please fill in all fields', 'error');
+                return;
+            }
+
+            const btn = event.target;
+            const originalContent = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Adding...';
+
+            fetch('/api/databases/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type, name, host, port: parseInt(port) })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(`Database ${name} added successfully`, 'success');
+                    // Clear form
+                    document.getElementById('dbName').value = '';
+                    document.getElementById('dbHost').value = '';
+                    document.getElementById('dbPort').value = '';
+                    // Refresh UI
+                    loadStatus();
+                } else {
+                    showAlert('Failed to add database: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                showAlert('Error: ' + error.message, 'error');
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
+            });
+        }
+
+        function testDatabase(dbId) {
+            const btn = event.target;
+            const originalContent = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Testing...';
+
+            fetch('/api/databases/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ db_id: dbId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('Database connectivity verified', 'success');
+                    loadStatus();
+                } else {
+                    showAlert('Database connectivity test failed: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                showAlert('Error: ' + error.message, 'error');
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
+            });
+        }
+
+        function removeDatabase(dbId) {
+            if (!confirm('Are you sure you want to remove this database?')) {
+                return;
+            }
+
+            fetch('/api/databases/remove', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ db_id: dbId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('Database removed successfully', 'success');
+                    loadStatus();
+                } else {
+                    showAlert('Failed to remove database: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                showAlert('Error: ' + error.message, 'error');
+            });
+        }
+
+        function startJob(workload, scenario) {
+            const databaseId = document.getElementById(`${scenario}Db_${workload}`).value;
+            const cycleRate = scenario === 'live' ?
+                parseInt(document.getElementById(`cycleRate_${workload}`).value) : 10;
+
+            const btn = event.target;
+            const originalContent = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Starting...';
+
+            fetch('/api/benchmarks/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    workload,
+                    scenario,
+                    database_id: databaseId,
+                    cycle_rate: cycleRate
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(`Started ${scenario} job for ${workload}`, 'success');
+                    loadStatus();
+                } else {
+                    showAlert('Failed to start job: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                showAlert('Error: ' + error.message, 'error');
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
+            });
+        }
+
+        function stopJob(jobId) {
+            const btn = event.target;
+            const originalContent = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Stopping...';
+
+            fetch('/api/benchmarks/stop', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ job_id: jobId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('Job stopped successfully', 'success');
+                    loadStatus();
+                } else {
+                    showAlert('Failed to stop job: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                showAlert('Error: ' + error.message, 'error');
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
+            });
+        }
+
+        // Utility functions
+        function formatRuntime(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+
+            if (hours > 0) {
+                return `${hours}h ${minutes}m ${secs}s`;
+            } else if (minutes > 0) {
+                return `${minutes}m ${secs}s`;
+            } else {
+                return `${secs}s`;
+            }
+        }
+
+        function showAlert(message, type = 'info') {
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.innerHTML = message;
+            alert.style.position = 'fixed';
+            alert.style.top = '24px';
+            alert.style.right = '24px';
+            alert.style.zIndex = '1000';
+            alert.style.maxWidth = '400px';
+            alert.style.transform = 'translateX(100%)';
+            alert.style.transition = 'transform 0.3s ease';
+
+            document.body.appendChild(alert);
+
+            setTimeout(() => {
+                alert.style.transform = 'translateX(0)';
+            }, 100);
+
+            setTimeout(() => {
+                alert.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (alert.parentNode) {
+                        alert.parentNode.removeChild(alert);
+                    }
+                }, 300);
+            }, 5000);
+        }
+
+        function loadStatus() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(status => {
+                    appState = status;
+                    updateUI();
+                })
+                .catch(error => {
+                    console.error('Failed to load status:', error);
+                });
+        }
+
+        // Initial load
+        loadStatus();
+
+        // Load workloads
+        fetch('/api/workloads/available')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    appState.workloads = { available: data.workloads };
+                    updateWorkloadSection();
+                }
+            })
+            .catch(error => {
+                console.error('Failed to load workloads:', error);
+            });
+    </script>
+</body>
+</html>

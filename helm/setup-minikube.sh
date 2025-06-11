@@ -1,4 +1,4 @@
-#!/bin/bash
+ #!/bin/bash
 set -e
 
 # NoSQLBench Kubernetes Demo - Minikube Setup Script

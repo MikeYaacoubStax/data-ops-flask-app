@@ -94,56 +94,42 @@ class ConfigManager:
         }
         
         self._workload_definitions = {
-            "cassandra_sai": {
+            "sai_longrun": {
                 "file": "sai_longrun.yaml",
-                "setup_phases": ["setup.schema", "setup.rampup"],
-                "run_phase": "sai_reads_test.sai_reads",
                 "driver": "cql",
                 "keyspace": "sai_test",
-                "enabled": False
+                "enabled": True
             },
-            "cassandra_lwt": {
+            "lwt_longrun": {
                 "file": "lwt_longrun.yaml",
-                "setup_phases": ["setup.schema", "setup.truncating", "setup.sharding", "setup.lwt_load"],
-                "run_phase": "lwt-updates.lwt_live_update",
                 "driver": "cql",
                 "keyspace": "lwt_ks",
-                "enabled": False
+                "enabled": True
             },
-            "opensearch_basic": {
+            "opensearch_basic_longrun": {
                 "file": "opensearch_basic_longrun.yaml",
-                "setup_phases": ["default.pre_cleanup", "default.schema", "default.rampup"],
-                "run_phase": "default.search",
                 "driver": "opensearch",
-                "enabled": False
+                "enabled": True
             },
-            "opensearch_vector": {
-                "file": "opensearch_vector_search_longrun.yaml",
-                "setup_phases": ["default.pre_cleanup", "default.schema", "default.rampup"],
-                "run_phase": "default.search",
-                "driver": "opensearch",
-                "enabled": False
-            },
-            "opensearch_bulk": {
+            "opensearch_bulk_longrun": {
                 "file": "opensearch_bulk_longrun.yaml",
-                "setup_phases": ["default.pre_cleanup", "default.schema", "default.bulk_load"],
-                "run_phase": "default.verify",
                 "driver": "opensearch",
-                "enabled": False
+                "enabled": True
             },
-            "presto_analytics": {
+            "opensearch_vector_search_longrun": {
+                "file": "opensearch_vector_search_longrun.yaml",
+                "driver": "opensearch",
+                "enabled": True
+            },
+            "jdbc_analytics_longrun": {
                 "file": "jdbc_analytics_longrun.yaml",
-                "setup_phases": ["default.drop", "default.schema", "default.rampup"],
-                "run_phase": "default.analytics",
                 "driver": "jdbc",
-                "enabled": False
+                "enabled": True
             },
-            "presto_ecommerce": {
+            "jdbc_ecommerce_longrun": {
                 "file": "jdbc_ecommerce_longrun.yaml",
-                "setup_phases": ["default.drop", "default.schema", "default.rampup"],
-                "run_phase": "default.transactions",
                 "driver": "jdbc",
-                "enabled": False
+                "enabled": True
             }
         }
     
@@ -164,14 +150,47 @@ class ConfigManager:
         return self._workload_definitions.copy()
     
     def get_available_workloads(self) -> List[str]:
-        """Get list of available workloads based on enabled databases"""
-        available = []
-        
+        """Get list of available workloads based on enabled databases (legacy)"""
+        # Legacy method - return all workloads for backward compatibility
+        return list(self._workload_definitions.keys())
+
+    def get_all_workloads(self) -> List[Dict[str, Any]]:
+        """Get all workloads with their metadata"""
+        workloads = []
+
         for workload_name, workload_config in self._workload_definitions.items():
-            if workload_config.get("enabled", False):
-                available.append(workload_name)
-        
-        return available
+            workload_info = {
+                "name": workload_name,
+                "file": workload_config.get("file"),
+                "driver": workload_config.get("driver"),
+                "database_type": self._get_database_type_from_driver(workload_config.get("driver")),
+                "description": self._get_workload_description(workload_name)
+            }
+            workloads.append(workload_info)
+
+        return workloads
+
+    def _get_database_type_from_driver(self, driver: str) -> str:
+        """Map driver to database type"""
+        driver_mapping = {
+            "cql": "cassandra",
+            "opensearch": "opensearch",
+            "jdbc": "presto"
+        }
+        return driver_mapping.get(driver, "unknown")
+
+    def _get_workload_description(self, workload_name: str) -> str:
+        """Get human-readable description for workload"""
+        descriptions = {
+            "sai_longrun": "Cassandra Secondary Index (SAI) workload",
+            "lwt_longrun": "Cassandra Lightweight Transactions (LWT) workload",
+            "opensearch_basic_longrun": "OpenSearch basic CRUD operations",
+            "opensearch_bulk_longrun": "OpenSearch bulk operations",
+            "opensearch_vector_search_longrun": "OpenSearch vector similarity search",
+            "jdbc_analytics_longrun": "Presto/Trino analytics queries",
+            "jdbc_ecommerce_longrun": "Presto/Trino e-commerce transactions"
+        }
+        return descriptions.get(workload_name, workload_name.replace("_", " ").title())
     
     def is_auto_setup_enabled(self) -> bool:
         """Check if auto-setup is enabled"""

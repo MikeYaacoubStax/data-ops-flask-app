@@ -30,7 +30,13 @@ spec:
       containers:
         - name: webapp
           securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
+            runAsNonRoot: {{ .Values.securityContext.runAsNonRoot | default true }}
+            {{- if .Values.securityContext.runAsUser }}
+            runAsUser: {{ .Values.securityContext.runAsUser }}
+            {{- end }}
+            {{- if .Values.securityContext.runAsGroup }}
+            runAsGroup: {{ .Values.securityContext.runAsGroup }}
+            {{- end }}
           image: {{ include "nosqlbench-demo.webapp.image" . }}
           imagePullPolicy: {{ .Values.webapp.image.pullPolicy }}
           ports:
@@ -51,6 +57,15 @@ spec:
               value: {{ .Release.Name | quote }}
             - name: NOSQLBENCH_IMAGE
               value: {{ include "nosqlbench-demo.nosqlbench.image" . | quote }}
+            # NoSQLBench resource configuration
+            - name: NOSQLBENCH_CPU_REQUEST
+              value: {{ .Values.nosqlbench.resources.requests.cpu | quote }}
+            - name: NOSQLBENCH_MEMORY_REQUEST
+              value: {{ .Values.nosqlbench.resources.requests.memory | quote }}
+            - name: NOSQLBENCH_CPU_LIMIT
+              value: {{ .Values.nosqlbench.resources.limits.cpu | quote }}
+            - name: NOSQLBENCH_MEMORY_LIMIT
+              value: {{ .Values.nosqlbench.resources.limits.memory | quote }}
             # Database configuration
             {{- include "nosqlbench-demo.databaseEnv" . | nindent 12 }}
           volumeMounts:

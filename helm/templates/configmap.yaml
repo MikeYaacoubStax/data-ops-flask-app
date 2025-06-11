@@ -64,53 +64,21 @@ data:
   # Workload definitions (matching the Flask app config)
   workload-definitions.yaml: |
     workloads:
-      cassandra_sai:
-        file: 'sai_longrun.yaml'
-        setup_phases: ['setup.schema', 'setup.rampup']
-        run_phase: 'sai_reads_test.sai_reads'
-        driver: 'cql'
-        keyspace: 'sai_test'
-        enabled: {{ .Values.databases.cassandra.enabled }}
-      
-      cassandra_lwt:
-        file: 'lwt_longrun.yaml'
-        setup_phases: ['setup.schema', 'setup.truncating', 'setup.sharding', 'setup.lwt_load']
-        run_phase: 'lwt-updates.lwt_live_update'
-        driver: 'cql'
-        keyspace: 'lwt_ks'
-        enabled: {{ .Values.databases.cassandra.enabled }}
-      
-      opensearch_basic:
-        file: 'opensearch_basic_longrun.yaml'
-        setup_phases: ['default.pre_cleanup', 'default.schema', 'default.rampup']
-        run_phase: 'default.search'
-        driver: 'opensearch'
-        enabled: {{ .Values.databases.opensearch.enabled }}
-      
-      opensearch_vector:
-        file: 'opensearch_vector_search_longrun.yaml'
-        setup_phases: ['default.pre_cleanup', 'default.schema', 'default.rampup']
-        run_phase: 'default.search'
-        driver: 'opensearch'
-        enabled: {{ .Values.databases.opensearch.enabled }}
-      
-      opensearch_bulk:
-        file: 'opensearch_bulk_longrun.yaml'
-        setup_phases: ['default.pre_cleanup', 'default.schema', 'default.bulk_load']
-        run_phase: 'default.verify'
-        driver: 'opensearch'
-        enabled: {{ .Values.databases.opensearch.enabled }}
-      
-      presto_analytics:
-        file: 'jdbc_analytics_longrun.yaml'
-        setup_phases: ['default.drop', 'default.schema', 'default.rampup']
-        run_phase: 'default.analytics'
-        driver: 'jdbc'
-        enabled: {{ .Values.databases.presto.enabled }}
-      
-      presto_ecommerce:
-        file: 'jdbc_ecommerce_longrun.yaml'
-        setup_phases: ['default.drop', 'default.schema', 'default.rampup']
-        run_phase: 'default.transactions'
-        driver: 'jdbc'
-        enabled: {{ .Values.databases.presto.enabled }}
+      {{- range $workloadName, $workloadConfig := .Values.workloadDefinitions }}
+      {{ $workloadName }}:
+        file: {{ $workloadConfig.file | quote }}
+        setup_phases:
+          {{- range $workloadConfig.setup_phases }}
+          - {{ . | quote }}
+          {{- end }}
+        run_phase: {{ $workloadConfig.run_phase | quote }}
+        driver: {{ $workloadConfig.driver | quote }}
+        {{- if $workloadConfig.keyspace }}
+        keyspace: {{ $workloadConfig.keyspace | quote }}
+        {{- end }}
+        enabled: {{- if eq $workloadConfig.driver "cql" }} {{ $.Values.databases.cassandra.enabled }}
+        {{- else if eq $workloadConfig.driver "opensearch" }} {{ $.Values.databases.opensearch.enabled }}
+        {{- else if eq $workloadConfig.driver "jdbc" }} {{ $.Values.databases.presto.enabled }}
+        {{- else }} false
+        {{- end }}
+      {{- end }}

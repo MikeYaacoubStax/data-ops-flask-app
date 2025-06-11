@@ -205,3 +205,143 @@ kubectl logs -l app.kubernetes.io/name=nosqlbench-demo
 # Scale resources if needed
 kubectl patch deployment nosqlbench-demo -p '{"spec":{"template":{"spec":{"containers":[{"name":"nosqlbench-demo","resources":{"limits":{"memory":"8Gi"}}}]}}}}'
 ```
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+1. **OutOfMemoryError in NoSQLBench jobs:**
+   ```bash
+   # Increase memory limits in values.yaml
+   nosqlbench:
+     resources:
+       limits:
+         memory: 8Gi  # Increase from 4Gi
+   ```
+
+2. **Jobs failing with "executable not found":**
+   - Ensure using correct NoSQLBench image version
+   - Check that jobs use `args` instead of `command`
+
+3. **State management errors (403 Forbidden):**
+   - Verify RBAC permissions for ConfigMap access
+   - Check service account has proper roles
+
+4. **Database connection issues:**
+   - Verify database hosts are accessible from cluster
+   - Check firewall rules and network policies
+   - Validate credentials if authentication is enabled
+
+5. **Label conflicts in NoSQLBench:**
+   - Ensure setup jobs don't include `--add-labels` parameters
+   - Check job manager removes conflicting labels for setup phases
+
+### Debug Commands
+
+```bash
+# Check pod status
+kubectl describe pod -l app.kubernetes.io/name=nosqlbench-demo
+
+# View events
+kubectl get events --sort-by=.metadata.creationTimestamp
+
+# Check job specifications
+kubectl get job <job-name> -o yaml
+
+# Test database connectivity
+kubectl run test-db --image=busybox --rm -it --restart=Never -- nc -zv <db-host> <db-port>
+
+# Check resource usage
+kubectl top pods
+kubectl top nodes
+```
+
+## 📊 Monitoring
+
+### Metrics Integration
+
+The system integrates with VictoriaMetrics for benchmark metrics:
+
+```yaml
+metrics:
+  endpoint: "http://victoriametrics.monitoring.svc.cluster.local:8428"
+```
+
+### Job Monitoring
+
+- **Setup Jobs**: Monitor with `kubectl get jobs -l job-type=setup`
+- **Benchmark Jobs**: Monitor with `kubectl get jobs -l job-type=benchmark`
+- **Web Interface**: Real-time status updates every 2 seconds
+
+## 🔄 Development
+
+### Building Custom Images
+
+```bash
+# Build webapp image
+cd docker
+docker build -t nosqlbench-webapp:dev .
+
+# Test locally
+docker run -p 5000:5000 nosqlbench-webapp:dev
+```
+
+### Modifying Workloads
+
+1. Edit workload definitions in `values.yaml`
+2. Update ConfigMap: `helm upgrade nosqlbench-demo . -f values.yaml`
+3. Restart webapp: `kubectl rollout restart deployment/nosqlbench-demo`
+
+### Key Files
+
+- `docker/app.py` - Main Flask application
+- `docker/services/k8s_job_manager.py` - Job management logic (key method: `_build_job_spec`)
+- `docker/services/k8s_state_manager.py` - State persistence
+- `docker/templates/index.html` - Material Design UI
+- `templates/` - Kubernetes resource templates
+- `values.yaml` - Configuration values
+
+## 📝 Implementation Notes
+
+### Resource Requirements
+- **Memory**: LWT workloads require at least 4Gi memory
+- **CPU**: 2 cores recommended for complex workloads
+- **Storage**: Minimal, uses ConfigMaps for state
+
+### Database Access
+- Ensure databases are accessible from Kubernetes pods
+- Use service discovery for in-cluster databases
+- Configure proper network policies if required
+
+### State Management
+- Uses ConfigMaps for persistence (no external dependencies)
+- State includes setup completion and running benchmark tracking
+- Automatic cleanup of completed jobs via TTL
+
+### Real-time Updates
+- WebSocket connection provides live status updates
+- Updates every 2 seconds without page refresh
+- Graceful degradation if WebSocket fails
+
+## 🚀 Production Considerations
+
+1. **Image Registry**: Push webapp image to private registry
+2. **Resource Limits**: Adjust based on workload requirements
+3. **Monitoring**: Integrate with existing monitoring stack
+4. **Security**: Configure network policies and pod security contexts
+5. **Backup**: ConfigMap state can be backed up with cluster backups
+
+## 🤝 Contributing
+
+To extend functionality:
+
+1. **Add New Workloads**: Update `workloadDefinitions` in `values.yaml`
+2. **Add Database Support**: Extend job manager with new driver logic
+3. **UI Enhancements**: Modify `docker/templates/index.html`
+4. **API Extensions**: Add endpoints in `docker/app.py`
+
+---
+
+**Status**: Production Ready ✅
+**Last Updated**: June 2025
+**Version**: 1.0.0

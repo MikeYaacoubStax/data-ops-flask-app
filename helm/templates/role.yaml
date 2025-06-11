@@ -23,10 +23,10 @@ rules:
   resources: ["pods/log"]
   verbs: ["get", "list"]
 
-# ConfigMap permissions (for workload configurations)
+# ConfigMap permissions (for workload configurations and state management)
 - apiGroups: [""]
   resources: ["configmaps"]
-  verbs: ["get", "list", "watch"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 
 # Event permissions (for job events)
 - apiGroups: [""]

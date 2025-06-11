@@ -65,7 +65,7 @@ webapp:
     SECRET_KEY: "minikube-test-secret-key"
   
   # Auto-setup configuration
-  autoSetup: true  # Automatically run setup on installation
+  autoSetup: false  # Disable auto-setup, run manually via UI
 
 # NoSQLBench job configuration
 nosqlbench:
@@ -76,14 +76,14 @@ nosqlbench:
     tag: "5.21.8-preview"
     pullPolicy: IfNotPresent
   
-  # Resource limits for minikube (reduced for local testing)
+  # Resource limits for minikube (increased for NoSQLBench memory requirements)
   resources:
     limits:
-      cpu: 1000m
-      memory: 1Gi
+      cpu: 2000m
+      memory: 4Gi
     requests:
-      cpu: 100m
-      memory: 256Mi
+      cpu: 200m
+      memory: 1Gi
   
   # Job settings
   jobs:
