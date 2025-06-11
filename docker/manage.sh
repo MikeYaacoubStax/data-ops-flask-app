@@ -56,8 +56,8 @@ create_directories() {
 # Function to start monitoring stack
 start_monitoring() {
     print_header "Starting Monitoring Stack"
-    docker-compose --profile monitoring up -d
-    print_status "Monitoring stack started. Access Grafana at http://localhost:3000 (admin/admin)"
+    docker-compose -f docker-compose.monitoring.yml up -d
+    print_status "Monitoring stack started. Access Grafana at http://localhost:3001 (admin/admin)"
 }
 
 # Function to start database stack

@@ -1,7 +1,5 @@
-version: '3.8'
-
 services:
-  # VictoriaMetrics - Time series database for NoSQLBench metrics (matching Flask app setup)
+  # VictoriaMetrics - Time series database for NoSQLBench metrics
   demo-victoriametrics:
     image: victoriametrics/victoria-metrics:latest
     container_name: demo-victoriametrics
@@ -21,23 +19,23 @@ services:
     volumes:
       - victoriametrics-data:/victoria-metrics-data
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8428/health || exit 1"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8428/"]
+      interval: 10s
+      timeout: 5s
       retries: 3
-      start_period: 30s
+      start_period: 10s
     networks:
       - monitoring-network
     restart: unless-stopped
 
 
 
-  # Grafana - Visualization and dashboards (matching Flask app setup)
+  # Grafana - Visualization and dashboards
   demo-grafana:
     image: grafana/grafana:latest
     container_name: demo-grafana
     ports:
-      - "${GRAFANA_PORT:-3001}:3000"  # Changed to 3001 to match Flask app
+      - "${GRAFANA_PORT:-3001}:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
       - GF_SECURITY_ADMIN_USER=admin
@@ -59,21 +57,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    networks:
-      - monitoring-network
-    restart: unless-stopped
-
-  # Prometheus Node Exporter for system metrics
-  demo-node-exporter:
-    image: prom/node-exporter:latest
-    container_name: demo-node-exporter
-    ports:
-      - "${NODE_EXPORTER_PORT:-9100}:9100"
-    command:
-      - '--path.rootfs=/host'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
-    volumes:
-      - /:/host:ro,rslave
     networks:
       - monitoring-network
     restart: unless-stopped
