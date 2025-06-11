@@ -126,15 +126,20 @@ stop_services() {
             docker-compose --profile databases down
             ;;
         "setup")
-            docker-compose -f docker-compose.nosqlbench-setup.yml down
+            docker-compose -f docker-compose.nosqlbench-setup.yml --profile setup down
             ;;
         "run")
-            docker-compose -f docker-compose.nosqlbench-run.yml down
+            docker-compose -f docker-compose.nosqlbench-run.yml --profile run down
             ;;
         "all"|"")
-            docker-compose -f docker-compose.nosqlbench-run.yml down 2>/dev/null || true
-            docker-compose -f docker-compose.nosqlbench-setup.yml down 2>/dev/null || true
+            print_status "Stopping NoSQLBench run containers..."
+            docker-compose -f docker-compose.nosqlbench-run.yml --profile run down || print_warning "No run containers to stop"
+            print_status "Stopping NoSQLBench setup containers..."
+            docker-compose -f docker-compose.nosqlbench-setup.yml --profile setup down || print_warning "No setup containers to stop"
+            print_status "Stopping infrastructure services..."
             docker-compose --profile all down
+            print_status "Stopping any remaining NoSQLBench containers..."
+            docker stop $(docker ps -q --filter "name=nb-") 2>/dev/null || print_warning "No additional NoSQLBench containers found"
             ;;
         *)
             print_error "Unknown service type: $service_type"
@@ -178,9 +183,13 @@ cleanup() {
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         stop_services "all"
-        docker-compose -f docker-compose.nosqlbench-run.yml down -v 2>/dev/null || true
-        docker-compose -f docker-compose.nosqlbench-setup.yml down -v 2>/dev/null || true
+        print_status "Removing volumes and networks..."
+        docker-compose -f docker-compose.nosqlbench-run.yml --profile run down -v 2>/dev/null || true
+        docker-compose -f docker-compose.nosqlbench-setup.yml --profile setup down -v 2>/dev/null || true
         docker-compose --profile all down -v
+        print_status "Removing any remaining NoSQLBench containers..."
+        docker rm -f $(docker ps -aq --filter "name=nb-") 2>/dev/null || true
+        print_status "Pruning Docker system..."
         docker system prune -f
         print_status "Cleanup completed"
     else
