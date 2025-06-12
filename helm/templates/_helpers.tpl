@@ -90,90 +90,9 @@ Create the nosqlbench image name
 {{- end }}
 
 {{/*
-Generate database configuration as environment variables
+Database configuration is handled dynamically through the web UI
+No static database helpers needed
 */}}
-{{- define "nosqlbench-demo.databaseEnv" -}}
-{{- if .Values.databases.cassandra.enabled }}
-- name: CASSANDRA_HOST
-  value: {{ .Values.databases.cassandra.host | quote }}
-- name: CASSANDRA_PORT
-  value: {{ .Values.databases.cassandra.port | quote }}
-- name: CASSANDRA_LOCALDC
-  value: {{ .Values.databases.cassandra.localdc | quote }}
-{{- if .Values.databases.cassandra.username }}
-- name: CASSANDRA_USERNAME
-  value: {{ .Values.databases.cassandra.username | quote }}
-{{- end }}
-{{- if .Values.databases.cassandra.password }}
-- name: CASSANDRA_PASSWORD
-  value: {{ .Values.databases.cassandra.password | quote }}
-{{- end }}
-{{- end }}
-{{- if .Values.databases.opensearch.enabled }}
-- name: OPENSEARCH_HOST
-  value: {{ .Values.databases.opensearch.host | quote }}
-- name: OPENSEARCH_PORT
-  value: {{ .Values.databases.opensearch.port | quote }}
-{{- if .Values.databases.opensearch.username }}
-- name: OPENSEARCH_USERNAME
-  value: {{ .Values.databases.opensearch.username | quote }}
-{{- end }}
-{{- if .Values.databases.opensearch.password }}
-- name: OPENSEARCH_PASSWORD
-  value: {{ .Values.databases.opensearch.password | quote }}
-{{- end }}
-{{- end }}
-{{- if .Values.databases.presto.enabled }}
-- name: PRESTO_HOST
-  value: {{ .Values.databases.presto.host | quote }}
-- name: PRESTO_PORT
-  value: {{ .Values.databases.presto.port | quote }}
-- name: PRESTO_USER
-  value: {{ .Values.databases.presto.user | quote }}
-- name: PRESTO_CATALOG
-  value: {{ .Values.databases.presto.catalog | quote }}
-{{- end }}
-- name: METRICS_ENDPOINT
-  value: {{ .Values.metrics.endpoint | quote }}
-{{- end }}
-
-{{/*
-Generate enabled databases list
-*/}}
-{{- define "nosqlbench-demo.enabledDatabases" -}}
-{{- $databases := list -}}
-{{- if .Values.databases.cassandra.enabled -}}
-{{- $databases = append $databases "cassandra" -}}
-{{- end -}}
-{{- if .Values.databases.opensearch.enabled -}}
-{{- $databases = append $databases "opensearch" -}}
-{{- end -}}
-{{- if .Values.databases.presto.enabled -}}
-{{- $databases = append $databases "presto" -}}
-{{- end -}}
-{{- join "," $databases -}}
-{{- end }}
-
-{{/*
-Generate workload list based on enabled databases
-*/}}
-{{- define "nosqlbench-demo.availableWorkloads" -}}
-{{- $workloads := list -}}
-{{- if .Values.databases.cassandra.enabled -}}
-{{- $workloads = append $workloads "cassandra_sai" -}}
-{{- $workloads = append $workloads "cassandra_lwt" -}}
-{{- end -}}
-{{- if .Values.databases.opensearch.enabled -}}
-{{- $workloads = append $workloads "opensearch_basic" -}}
-{{- $workloads = append $workloads "opensearch_vector" -}}
-{{- $workloads = append $workloads "opensearch_bulk" -}}
-{{- end -}}
-{{- if .Values.databases.presto.enabled -}}
-{{- $workloads = append $workloads "presto_analytics" -}}
-{{- $workloads = append $workloads "presto_ecommerce" -}}
-{{- end -}}
-{{- join "," $workloads -}}
-{{- end }}
 
 {{/*
 Generate job name for workload and phase

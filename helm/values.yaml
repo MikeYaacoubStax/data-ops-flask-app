@@ -7,34 +7,8 @@ global:
   imageRegistry: ""
   imagePullSecrets: []
 
-# Database endpoints configuration
-databases:
-  # Cassandra configuration
-  cassandra:
-    enabled: false
-    host: ""
-    port: 9042
-    localdc: "datacenter1"
-    # Optional authentication
-    username: ""
-    password: ""
-  
-  # OpenSearch configuration
-  opensearch:
-    enabled: false
-    host: ""
-    port: 9200
-    # Optional authentication
-    username: ""
-    password: ""
-  
-  # Presto/Trino configuration
-  presto:
-    enabled: false
-    host: ""
-    port: 8080
-    user: "testuser"
-    catalog: "memory"
+# Database endpoints are configured through the web UI
+# No static database configuration needed in values.yaml
 
 # VictoriaMetrics endpoint for metrics collection
 metrics:
@@ -45,7 +19,7 @@ webapp:
   # Container image settings
   image:
     registry: ""
-    repository: "nosqlbench-webapp"
+    repository: "mikeyaacoubstax/mike-personal"
     tag: "latest"
     pullPolicy: IfNotPresent
   
@@ -82,8 +56,8 @@ webapp:
     FLASK_DEBUG: "false"
     SECRET_KEY: "change-me-in-production"
   
-  # Auto-setup configuration
-  autoSetup: true
+  # Auto-setup configuration (disabled - databases configured through UI)
+  autoSetup: false
   
   # Node selector and tolerations
   nodeSelector: {}
@@ -153,7 +127,7 @@ workloads:
 
 # Individual workload definitions
 workloadDefinitions:
-  cassandra_sai:
+  sai_longrun:
     file: "sai_longrun.yaml"
     setup_phases: ["setup.schema", "setup.rampup"]
     run_phase: "sai_reads_test.sai_reads"
@@ -161,7 +135,7 @@ workloadDefinitions:
     keyspace: "sai_test"
     enabled: false  # Will be set to true if cassandra is enabled
 
-  cassandra_lwt:
+  lwt_longrun:
     file: "lwt_longrun.yaml"
     setup_phases: ["setup.schema", "setup.truncating", "setup.sharding", "setup.lwt_load"]
     run_phase: "lwt-updates.lwt_live_update"
@@ -169,35 +143,35 @@ workloadDefinitions:
     keyspace: "lwt_ks"
     enabled: false  # Will be set to true if cassandra is enabled
 
-  opensearch_basic:
+  opensearch_basic_longrun:
     file: "opensearch_basic_longrun.yaml"
     setup_phases: ["default.pre_cleanup", "default.schema", "default.rampup"]
     run_phase: "default.search"
     driver: "opensearch"
     enabled: false  # Will be set to true if opensearch is enabled
 
-  opensearch_vector:
+  opensearch_vector_search_longrun:
     file: "opensearch_vector_search_longrun.yaml"
     setup_phases: ["default.pre_cleanup", "default.schema", "default.rampup"]
     run_phase: "default.search"
     driver: "opensearch"
     enabled: false  # Will be set to true if opensearch is enabled
 
-  opensearch_bulk:
+  opensearch_bulk_longrun:
     file: "opensearch_bulk_longrun.yaml"
     setup_phases: ["default.pre_cleanup", "default.schema", "default.bulk_load"]
     run_phase: "default.verify"
     driver: "opensearch"
     enabled: false  # Will be set to true if opensearch is enabled
 
-  presto_analytics:
+  jdbc_analytics_longrun:
     file: "jdbc_analytics_longrun.yaml"
     setup_phases: ["default.drop", "default.schema", "default.rampup"]
     run_phase: "default.analytics"
     driver: "jdbc"
     enabled: false  # Will be set to true if presto is enabled
 
-  presto_ecommerce:
+  jdbc_ecommerce_longrun:
     file: "jdbc_ecommerce_longrun.yaml"
     setup_phases: ["default.drop", "default.schema", "default.rampup"]
     run_phase: "default.transactions"

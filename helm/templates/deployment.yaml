@@ -66,8 +66,7 @@ spec:
               value: {{ .Values.nosqlbench.resources.limits.cpu | quote }}
             - name: NOSQLBENCH_MEMORY_LIMIT
               value: {{ .Values.nosqlbench.resources.limits.memory | quote }}
-            # Database configuration
-            {{- include "nosqlbench-demo.databaseEnv" . | nindent 12 }}
+            # Database configuration is handled dynamically through the web UI
           volumeMounts:
             - name: config
               mountPath: /app/config
@@ -84,15 +83,17 @@ spec:
               path: /api/health
               port: http
             initialDelaySeconds: 30
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 3
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 5
           readinessProbe:
             httpGet:
               path: /api/ready
               port: http
-            initialDelaySeconds: 5
-            periodSeconds: 5
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
             timeoutSeconds: 3
             failureThreshold: 3
           resources:

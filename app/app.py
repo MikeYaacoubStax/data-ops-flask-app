@@ -33,7 +33,8 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = config.secret_key
 
 # Initialize SocketIO (using threading mode instead of eventlet for compatibility)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading',
+                   ping_timeout=60, ping_interval=25)
 
 # Initialize managers
 state_manager = StateManager()
@@ -54,20 +55,27 @@ def start_status_monitor():
 
 def status_monitor_loop():
     """Background thread to monitor and emit status updates"""
+    last_status = None
+    # Get status update interval from environment (default 5 seconds)
+    update_interval = int(os.getenv('STATUS_UPDATE_INTERVAL', '5'))
+
     while not shutdown_event.is_set():
         try:
             # Get current status
             status = get_application_status()
-            
-            # Emit status update to all connected clients
-            socketio.emit('status_update', status)
-            
-            # Wait for next update
-            shutdown_event.wait(1)  # 1-second intervals for more responsive updates
-            
+
+            # Only emit if status actually changed (reduce unnecessary updates)
+            if status != last_status:
+                socketio.emit('status_update', status)
+                last_status = status.copy() if isinstance(status, dict) else status
+                logger.debug("Status update emitted")
+
+            # Wait for next update - configurable interval for stability
+            shutdown_event.wait(update_interval)
+
         except Exception as e:
             logger.error(f"Error in status monitor: {e}")
-            shutdown_event.wait(5)  # Wait longer on error
+            shutdown_event.wait(update_interval * 2)  # Wait longer on error
 
 def get_application_status():
     """Get comprehensive application status"""

@@ -21,34 +21,28 @@
   kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT
 {{- end }}
 
-2. NoSQLBench Demo Configuration:
+2. Next Steps - Configure Database Endpoints:
 
-   Enabled Databases:
-   {{- if .Values.databases.cassandra.enabled }}
-   - Cassandra: {{ .Values.databases.cassandra.host }}:{{ .Values.databases.cassandra.port }}
-   {{- end }}
-   {{- if .Values.databases.opensearch.enabled }}
-   - OpenSearch: {{ .Values.databases.opensearch.host }}:{{ .Values.databases.opensearch.port }}
-   {{- end }}
-   {{- if .Values.databases.presto.enabled }}
-   - Presto: {{ .Values.databases.presto.host }}:{{ .Values.databases.presto.port }}
-   {{- end }}
+   📊 Database Configuration:
+   - Open the web interface above
+   - Navigate to "Database Configuration" section
+   - Add your database endpoints:
+     • Cassandra (CQL driver)
+     • OpenSearch (OpenSearch driver)
+     • Presto/Trino (JDBC driver)
+   - Test connectivity with built-in checker
+   - Run workloads on verified databases
 
-   Metrics Endpoint: {{ .Values.metrics.endpoint }}
+   📈 Metrics Endpoint: {{ .Values.metrics.endpoint }}
 
-   {{- if .Values.webapp.autoSetup }}
-   Auto-Setup: Enabled - Workloads will be set up automatically after deployment
-   {{- else }}
-   Auto-Setup: Disabled - Use the web interface to set up workloads manually
-   {{- end }}
+   🔧 Auto-Setup: {{ if .Values.webapp.autoSetup }}Enabled{{ else }}Disabled{{ end }}
 
-3. Available Workloads:
-   {{- $workloads := include "nosqlbench-demo.availableWorkloads" . }}
-   {{- if $workloads }}
-   {{ $workloads | replace "," ", " }}
-   {{- else }}
-   No workloads available - please enable at least one database
-   {{- end }}
+3. Available Features:
+   - Dynamic database configuration through web UI
+   - Fast connectivity checks (direct socket connections)
+   - Real-time UI updates without page refreshes
+   - Interactive benchmark controls with progress indicators
+   - All workloads available (Cassandra SAI/LWT, OpenSearch, Presto)
 
 4. Monitor the setup progress:
    kubectl --namespace {{ .Release.Namespace }} get jobs -l app.kubernetes.io/instance={{ .Release.Name }}

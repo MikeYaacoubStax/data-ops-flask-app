@@ -4,6 +4,8 @@ Manages NoSQLBench setup and benchmark jobs in Kubernetes
 """
 
 import os
+import re
+import socket
 import time
 import logging
 import threading
@@ -47,7 +49,28 @@ class KubernetesJobManager:
         self.nosqlbench_image = os.getenv('NOSQLBENCH_IMAGE', 'nosqlbench/nosqlbench:5.21.8-preview')
         
         logger.info(f"Initialized KubernetesJobManager for namespace: {self.namespace}")
-    
+
+    def _sanitize_label_value(self, value: str) -> str:
+        """Sanitize a string for use in Prometheus labels"""
+        if not value:
+            return "unknown"
+
+        # Replace spaces and special characters with underscores
+        # Prometheus label values can contain letters, numbers, underscores, and hyphens
+        sanitized = re.sub(r'[^a-zA-Z0-9_-]', '_', str(value))
+
+        # Remove multiple consecutive underscores
+        sanitized = re.sub(r'_+', '_', sanitized)
+
+        # Remove leading/trailing underscores
+        sanitized = sanitized.strip('_')
+
+        # Ensure it's not empty
+        if not sanitized:
+            return "unknown"
+
+        return sanitized
+
     def list_jobs(self, label_selector: str = None) -> List[Any]:
         """List jobs in the namespace"""
         try:
@@ -358,7 +381,6 @@ class KubernetesJobManager:
                 else:
                     # Update with current job status
                     benchmark_info["job_status"] = job_status
-                    benchmark_info["runtime"] = time.time() - benchmark_info["start_time"]
 
             return self.state_manager.get_running_benchmarks()
 
@@ -402,10 +424,20 @@ class KubernetesJobManager:
             if not workload_config:
                 return {"success": False, "error": f"Unknown workload: {workload_name}"}
 
-            # Generate job ID and name
-            job_id = f"{workload_name}-{scenario}-{database_id[:8]}-{uuid.uuid4().hex[:8]}"
+            # Generate job ID and name (shortened to fit Kubernetes 63-char limit)
+            # Use abbreviated workload names to save space
+            workload_abbrev = self._abbreviate_workload_name(workload_name)
+            scenario_abbrev = scenario[:5]  # 'setup' or 'live'
+            job_id = f"{workload_abbrev}-{scenario_abbrev}-{database_id[:6]}-{uuid.uuid4().hex[:6]}"
             safe_job_name = job_id.replace("_", "-").lower()
             job_name = f"{self.release_name}-{safe_job_name}"
+
+            # Ensure job name fits in Kubernetes label limit (63 chars)
+            if len(job_name) > 63:
+                # Truncate release name if needed
+                max_release_len = 63 - len(safe_job_name) - 1
+                truncated_release = self.release_name[:max_release_len]
+                job_name = f"{truncated_release}-{safe_job_name}"
 
             # Build job spec for scenario
             job_spec = self._build_scenario_job_spec(
@@ -496,13 +528,6 @@ class KubernetesJobManager:
                     else:
                         # Update with current status
                         job_info["k8s_status"] = job_status
-                        if job_info.get("start_time"):
-                            try:
-                                start_time = datetime.fromisoformat(job_info["start_time"])
-                                runtime = (datetime.now() - start_time).total_seconds()
-                                job_info["runtime"] = runtime
-                            except:
-                                pass
 
             return self.state_manager.get_running_jobs()
 
@@ -511,42 +536,45 @@ class KubernetesJobManager:
             return {}
 
     def test_database_connectivity(self, database_id: str) -> Dict[str, Any]:
-        """Test connectivity to a database"""
+        """Test connectivity to a database using direct socket connection"""
         try:
+            logger.info(f"Starting connectivity test for database {database_id}")
+
             database_config = self.state_manager.get_database(database_id)
             if not database_config:
+                logger.error(f"Database {database_id} not found")
                 return {"success": False, "error": "Database not found"}
 
-            # Create a simple connectivity test job
-            test_job_name = f"{self.release_name}-test-{database_id[:8]}-{uuid.uuid4().hex[:8]}"
+            # Get connection details
+            host = database_config.get("host")
+            port = database_config.get("port")
+            db_type = database_config.get("type")
 
-            job_spec = self._build_connectivity_test_job_spec(test_job_name, database_config)
+            logger.info(f"Testing connectivity to {db_type} at {host}:{port}")
 
-            # Create the job
-            job = self.batch_v1.create_namespaced_job(
-                namespace=self.namespace,
-                body=job_spec
-            )
+            if not host or not port:
+                logger.error(f"Missing host or port for database {database_id}: host={host}, port={port}")
+                return {"success": False, "error": "Missing host or port in database configuration"}
 
-            # Wait for job completion (short timeout for connectivity test)
-            success = self._wait_for_job_completion(test_job_name, timeout=60)
-
-            # Clean up test job
-            self.delete_job(test_job_name)
+            # Perform direct connectivity test with shorter timeout
+            logger.info(f"Performing socket connectivity test...")
+            success = self._test_socket_connectivity(host, port, timeout=5)
+            logger.info(f"Socket connectivity test result: {success}")
 
             # Update database verification status
+            logger.info(f"Updating database verification status to {success}")
             self.state_manager.update_database_verification(database_id, success)
 
             if success:
-                logger.info(f"Database connectivity test passed for {database_id}")
-                return {"success": True, "message": "Database connectivity verified"}
+                logger.info(f"Database connectivity test passed for {database_id} ({db_type} at {host}:{port})")
+                return {"success": True, "message": f"Database connectivity verified for {db_type} at {host}:{port}"}
             else:
-                logger.warning(f"Database connectivity test failed for {database_id}")
-                return {"success": False, "error": "Database connectivity test failed"}
+                logger.warning(f"Database connectivity test failed for {database_id} ({db_type} at {host}:{port})")
+                return {"success": False, "error": f"Cannot connect to {db_type} at {host}:{port}"}
 
         except Exception as e:
-            logger.error(f"Failed to test database connectivity: {e}")
-            return {"success": False, "error": str(e)}
+            logger.error(f"Failed to test database connectivity for {database_id}: {e}", exc_info=True)
+            return {"success": False, "error": f"Connectivity test error: {str(e)}"}
 
     def cleanup(self):
         """Cleanup resources"""
@@ -643,9 +671,9 @@ class KubernetesJobManager:
                     "app.kubernetes.io/instance": self.release_name,
                     "app.kubernetes.io/component": "nosqlbench",
                     "job-type": "benchmark",
-                    "workload": workload_name,
+                    "workload": self._abbreviate_workload_name(workload_name),
                     "scenario": scenario,
-                    "database-id": database_config.get("id", "unknown")
+                    "database-id": database_config.get("id", "unknown")[:8]
                 }
             },
             "spec": {
@@ -658,7 +686,7 @@ class KubernetesJobManager:
                             "app.kubernetes.io/instance": self.release_name,
                             "app.kubernetes.io/component": "nosqlbench",
                             "job-type": "benchmark",
-                            "workload": workload_name,
+                            "workload": self._abbreviate_workload_name(workload_name),
                             "scenario": scenario
                         }
                     },
@@ -727,11 +755,21 @@ class KubernetesJobManager:
                     f"password={database_config.get('password')}"
                 ])
         elif db_type == "presto":
+            # Build JDBC URL for Presto
+            host = database_config.get('host')
+            port = database_config.get('port', 8080)
+            # Handle empty username - use testuser as default
+            raw_user = database_config.get('username')
+            logger.info(f"Presto username from database_config: '{raw_user}' (type: {type(raw_user)})")
+            user = raw_user or 'testuser'
+            if not user or user.strip() == '':
+                user = 'testuser'
+            catalog = 'memory'
+            dburl = f"jdbc:presto://{host}:{port}/{catalog}?user={user}"
+            logger.info(f"Built Presto JDBC URL: {dburl}")
             cmd.extend([
-                f"host={database_config.get('host')}",
-                f"port={database_config.get('port', 8080)}",
-                "user=testuser",
-                "catalog=memory"
+                f"dburl={dburl}",
+                "use_hikaricp=true"
             ])
 
         # Add cycle rate for live scenarios
@@ -749,9 +787,13 @@ class KubernetesJobManager:
         test_id = f"{workload_name}_{scenario}_{database_config.get('id', 'unknown')[:8]}_{uuid.uuid4().hex[:8]}"
         metrics_url = f"{metrics_endpoint}/api/v1/import/prometheus/metrics/job/nosqlbench/instance/{test_id}"
 
+        # Sanitize database name for Prometheus labels
+        # Note: Don't include workload/scenario labels here as they conflict with workload YAML definitions
+        sanitized_db_name = self._sanitize_label_value(database_config.get('name', 'unknown'))
+
         cmd.extend([
             f"--report-prompush-to={metrics_url}",
-            f"--add-labels=job:nosqlbench,instance:{test_id},workload:{workload_name},scenario:{scenario},database:{database_config.get('name', 'unknown')}",
+            f"--add-labels=job:nosqlbench,instance:{test_id},database:{sanitized_db_name}",
             "--report-interval=10"
         ])
 
@@ -793,68 +835,7 @@ class KubernetesJobManager:
 
         return env_vars
 
-    def _build_connectivity_test_job_spec(self, job_name: str, database_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Build a simple connectivity test job"""
 
-        db_type = database_config.get("type")
-        host = database_config.get("host")
-        port = database_config.get("port")
-
-        # Use busybox for simple connectivity test
-        if db_type in ["cassandra", "opensearch", "presto"]:
-            test_cmd = ["nc", "-zv", host, str(port)]
-        else:
-            test_cmd = ["echo", "Unknown database type"]
-
-        job_spec = {
-            "apiVersion": "batch/v1",
-            "kind": "Job",
-            "metadata": {
-                "name": job_name,
-                "namespace": self.namespace,
-                "labels": {
-                    "app.kubernetes.io/name": "nosqlbench-demo",
-                    "app.kubernetes.io/instance": self.release_name,
-                    "app.kubernetes.io/component": "connectivity-test",
-                    "job-type": "test",
-                    "database-id": database_config.get("id", "unknown")
-                }
-            },
-            "spec": {
-                "ttlSecondsAfterFinished": 300,  # Clean up after 5 minutes
-                "backoffLimit": 1,
-                "template": {
-                    "metadata": {
-                        "labels": {
-                            "app.kubernetes.io/name": "nosqlbench-demo",
-                            "app.kubernetes.io/instance": self.release_name,
-                            "app.kubernetes.io/component": "connectivity-test",
-                            "job-type": "test"
-                        }
-                    },
-                    "spec": {
-                        "restartPolicy": "Never",
-                        "containers": [{
-                            "name": "connectivity-test",
-                            "image": "busybox:1.35",
-                            "command": test_cmd,
-                            "resources": {
-                                "requests": {
-                                    "cpu": "10m",
-                                    "memory": "16Mi"
-                                },
-                                "limits": {
-                                    "cpu": "100m",
-                                    "memory": "64Mi"
-                                }
-                            }
-                        }]
-                    }
-                }
-            }
-        }
-
-        return job_spec
 
     def _build_nosqlbench_command(self, workload_config: Dict[str, Any], phase: str,
                                  cycle_rate: int = None, db_config: Dict[str, Any] = None) -> List[str]:
@@ -1042,6 +1023,54 @@ class KubernetesJobManager:
             return parts[2].replace('-', '_')
 
         return "unknown"
+
+    def _abbreviate_workload_name(self, workload_name: str) -> str:
+        """Abbreviate workload names to save space in job names"""
+        abbreviations = {
+            "jdbc_analytics_longrun": "jdbc-analytics",
+            "jdbc_ecommerce_longrun": "jdbc-ecommerce",
+            "opensearch_basic_longrun": "os-basic",
+            "opensearch_vector_search_longrun": "os-vector",
+            "opensearch_bulk_longrun": "os-bulk",
+            "sai_longrun": "sai",
+            "lwt_longrun": "lwt"
+        }
+        return abbreviations.get(workload_name, workload_name[:12])
+
+    def _test_socket_connectivity(self, host: str, port: int, timeout: int = 10) -> bool:
+        """Test socket connectivity to a host and port"""
+        sock = None
+        try:
+            logger.info(f"Testing socket connectivity to {host}:{port} with timeout {timeout}s")
+
+            # Create a socket and attempt to connect
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(timeout)
+
+            # Use connect_ex for non-blocking connection test
+            result = sock.connect_ex((host, port))
+
+            # connect_ex returns 0 on success
+            success = result == 0
+            logger.info(f"Socket connectivity test for {host}:{port}: {'SUCCESS' if success else 'FAILED'} (result={result})")
+            return success
+
+        except socket.timeout:
+            logger.warning(f"Socket connectivity test timed out for {host}:{port} after {timeout}s")
+            return False
+        except socket.gaierror as e:
+            logger.warning(f"DNS resolution failed for {host}: {e}")
+            return False
+        except Exception as e:
+            logger.warning(f"Socket connectivity test failed for {host}:{port}: {e}")
+            return False
+        finally:
+            # Ensure socket is always closed
+            if sock:
+                try:
+                    sock.close()
+                except:
+                    pass
 
     def _get_nosqlbench_resources(self) -> Dict[str, Any]:
         """Get NoSQLBench resource configuration from environment or defaults"""

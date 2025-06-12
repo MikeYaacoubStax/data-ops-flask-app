@@ -108,32 +108,20 @@ This Helm chart deploys a comprehensive NoSQLBench management system that includ
 
 ### Database Configuration
 
-```yaml
-databases:
-  cassandra:
-    enabled: true
-    host: "cassandra.example.com"
-    port: 9042
-    localdc: "datacenter1"
-    # Optional authentication
-    username: ""
-    password: ""
-  
-  opensearch:
-    enabled: true
-    host: "opensearch.example.com"
-    port: 9200
-    # Optional authentication
-    username: ""
-    password: ""
-  
-  presto:
-    enabled: true
-    host: "presto.example.com"
-    port: 8080
-    user: "testuser"
-    catalog: "memory"
-```
+**Database endpoints are configured through the web UI after deployment.**
+
+No static database configuration is needed in values.yaml. Simply:
+
+1. Deploy the Helm chart
+2. Access the web interface
+3. Add database endpoints through the "Database Configuration" section
+4. Test connectivity with the built-in connectivity checker
+5. Run workloads on verified databases
+
+Example database endpoints:
+- **Cassandra**: `cassandra.example.com:9042`
+- **OpenSearch**: `opensearch.example.com:9200`
+- **Presto/Trino**: `presto.example.com:8080`
 
 ### Resource Configuration
 

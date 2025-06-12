@@ -1,34 +1,11 @@
 # Test values for NoSQLBench Kubernetes Demo
 # For use with minikube and local development
 
-# Database endpoints configuration
-databases:
-  # Cassandra configuration
-  cassandra:
-    enabled: true
-    host: "3.91.36.147"
-    port: 9042
-    localdc: "datacenter1"
-    # Optional authentication (uncomment if needed)
-    # username: ""
-    # password: ""
-  
-  # OpenSearch configuration
-  opensearch:
-    enabled: true
-    host: "3.91.36.147"
-    port: 9200
-    # Optional authentication (uncomment if needed)
-    # username: ""
-    # password: ""
-  
-  # Presto/Trino configuration
-  presto:
-    enabled: true
-    host: "3.91.36.147"
-    port: 8080
-    user: "testuser"
-    catalog: "memory"
+# Database endpoints are configured through the web UI after deployment
+# Example endpoints for reference:
+# - Cassandra: 3.91.36.147:9042
+# - OpenSearch: 3.91.36.147:9200
+# - Presto: 3.91.36.147:8080
 
 # VictoriaMetrics endpoint (localhost:8428 accessible from minikube)
 # Note: minikube can access host machine via host.minikube.internal

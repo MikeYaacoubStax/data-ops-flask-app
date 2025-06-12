@@ -480,28 +480,100 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script>
-        // Initialize Socket.IO
-        const socket = io();
-        
+        // Initialize Socket.IO with better connection handling
+        const socket = io({
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionAttempts: 5,
+            timeout: 20000
+        });
+
         // Global state
         let currentStatus = {};
         let isInfrastructureReady = false;
-        
-        // Socket event handlers
+        let formStatePreserved = {};
+        let isReconnecting = false;
+
+        // Preserve form state before updates
+        function preserveFormState() {
+            const forms = document.querySelectorAll('input, select, textarea');
+            forms.forEach(element => {
+                if (element.id && element.value) {
+                    formStatePreserved[element.id] = element.value;
+                }
+            });
+        }
+
+        // Restore form state after updates
+        function restoreFormState() {
+            Object.keys(formStatePreserved).forEach(id => {
+                const element = document.getElementById(id);
+                if (element && !element.disabled) {
+                    element.value = formStatePreserved[id];
+                }
+            });
+        }
+
+        // Socket event handlers with improved stability
         socket.on('connect', function() {
+            console.log('Connected to server');
             document.getElementById('connection-status').textContent = 'Connected';
             document.getElementById('connection-status').className = 'badge bg-success';
+
+            if (isReconnecting) {
+                console.log('Reconnected - requesting status update');
+                // Request fresh status after reconnection
+                fetch('/api/status')
+                    .then(response => response.json())
+                    .then(status => {
+                        currentStatus = status;
+                        updateUI(status);
+                        restoreFormState();
+                    })
+                    .catch(error => console.error('Failed to get status after reconnection:', error));
+                isReconnecting = false;
+            }
         });
-        
+
         socket.on('disconnect', function() {
+            console.log('Disconnected from server');
             document.getElementById('connection-status').textContent = 'Disconnected';
+            document.getElementById('connection-status').className = 'badge bg-warning';
+            preserveFormState();
+            isReconnecting = true;
+        });
+
+        socket.on('reconnect_attempt', function() {
+            console.log('Attempting to reconnect...');
+            document.getElementById('connection-status').textContent = 'Reconnecting...';
+            document.getElementById('connection-status').className = 'badge bg-warning';
+        });
+
+        socket.on('reconnect_failed', function() {
+            console.log('Reconnection failed');
+            document.getElementById('connection-status').textContent = 'Connection Failed';
             document.getElementById('connection-status').className = 'badge bg-danger';
         });
-        
+
         socket.on('status_update', function(status) {
-            currentStatus = status;
-            updateUI(status);
+            // Only update if we're not in the middle of user input
+            if (!isUserTyping()) {
+                preserveFormState();
+                currentStatus = status;
+                updateUI(status);
+                restoreFormState();
+            }
         });
+
+        // Check if user is currently typing in any input field
+        function isUserTyping() {
+            const activeElement = document.activeElement;
+            return activeElement && (
+                activeElement.tagName === 'INPUT' ||
+                activeElement.tagName === 'TEXTAREA' ||
+                activeElement.tagName === 'SELECT'
+            );
+        }
 
         // Real-time runtime updates based on start times
         let runtimeUpdateInterval;
@@ -1238,10 +1310,42 @@
             bsToast.show();
         }
         
+        // Manual status refresh function
+        function refreshStatus() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    preserveFormState();
+                    currentStatus = data;
+                    updateUI(data);
+                    updateInfrastructureButtons();
+                    restoreFormState();
+                })
+                .catch(error => console.error('Failed to refresh status:', error));
+        }
+
+        // Add refresh button functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add refresh button to connection status area
+            const connectionStatus = document.getElementById('connection-status');
+            if (connectionStatus && connectionStatus.parentElement) {
+                const refreshBtn = document.createElement('button');
+                refreshBtn.className = 'btn btn-sm btn-outline-secondary ms-2';
+                refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
+                refreshBtn.title = 'Refresh Status';
+                refreshBtn.onclick = refreshStatus;
+                connectionStatus.parentElement.appendChild(refreshBtn);
+            }
+        });
+
+        // Periodic fallback refresh (less frequent than WebSocket)
+        setInterval(refreshStatus, 30000); // Every 30 seconds as fallback
+
         // Initial load
         fetch('/api/status')
             .then(response => response.json())
             .then(data => {
+                currentStatus = data;
                 updateUI(data);
                 // Ensure button states are set correctly on initial load
                 updateInfrastructureButtons();

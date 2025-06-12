@@ -8,46 +8,9 @@ metadata:
 data:
   # Application configuration
   app-config.yaml: |
-    databases:
-      {{- if .Values.databases.cassandra.enabled }}
-      cassandra:
-        enabled: true
-        host: {{ .Values.databases.cassandra.host | quote }}
-        port: {{ .Values.databases.cassandra.port }}
-        localdc: {{ .Values.databases.cassandra.localdc | quote }}
-        {{- if .Values.databases.cassandra.username }}
-        username: {{ .Values.databases.cassandra.username | quote }}
-        {{- end }}
-      {{- else }}
-      cassandra:
-        enabled: false
-      {{- end }}
-      
-      {{- if .Values.databases.opensearch.enabled }}
-      opensearch:
-        enabled: true
-        host: {{ .Values.databases.opensearch.host | quote }}
-        port: {{ .Values.databases.opensearch.port }}
-        {{- if .Values.databases.opensearch.username }}
-        username: {{ .Values.databases.opensearch.username | quote }}
-        {{- end }}
-      {{- else }}
-      opensearch:
-        enabled: false
-      {{- end }}
-      
-      {{- if .Values.databases.presto.enabled }}
-      presto:
-        enabled: true
-        host: {{ .Values.databases.presto.host | quote }}
-        port: {{ .Values.databases.presto.port }}
-        user: {{ .Values.databases.presto.user | quote }}
-        catalog: {{ .Values.databases.presto.catalog | quote }}
-      {{- else }}
-      presto:
-        enabled: false
-      {{- end }}
-    
+    # Database endpoints are configured dynamically through the web UI
+    # No static database configuration needed
+
     metrics:
       endpoint: {{ .Values.metrics.endpoint | quote }}
     
@@ -57,9 +20,9 @@ data:
       errorsMode: {{ .Values.workloads.errorsMode | quote }}
     
     autoSetup: {{ .Values.webapp.autoSetup }}
-    
-    # Available workloads based on enabled databases
-    availableWorkloads: {{ include "nosqlbench-demo.availableWorkloads" . | quote }}
+
+    # All workloads are available - database configuration is dynamic
+    availableWorkloads: "all"
 
   # Workload definitions (matching the Flask app config)
   workload-definitions.yaml: |
@@ -76,9 +39,5 @@ data:
         {{- if $workloadConfig.keyspace }}
         keyspace: {{ $workloadConfig.keyspace | quote }}
         {{- end }}
-        enabled: {{- if eq $workloadConfig.driver "cql" }} {{ $.Values.databases.cassandra.enabled }}
-        {{- else if eq $workloadConfig.driver "opensearch" }} {{ $.Values.databases.opensearch.enabled }}
-        {{- else if eq $workloadConfig.driver "jdbc" }} {{ $.Values.databases.presto.enabled }}
-        {{- else }} false
-        {{- end }}
+        enabled: true  # All workloads available - database configuration is dynamic
       {{- end }}

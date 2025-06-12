@@ -7,7 +7,7 @@ import os
 import json
 import logging
 import threading
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from datetime import datetime
 
 from kubernetes import client, config
@@ -79,46 +79,49 @@ class KubernetesStateManager:
     def save_state(self):
         """Save state to Kubernetes ConfigMap"""
         try:
+            # Get a copy of the state to avoid holding the lock during API calls
             with self.lock:
-                self._state["last_updated"] = datetime.now().isoformat()
-                state_json = json.dumps(self._state, indent=2)
-                
-                configmap_body = {
-                    "apiVersion": "v1",
-                    "kind": "ConfigMap",
-                    "metadata": {
-                        "name": self.state_configmap_name,
-                        "namespace": self.namespace,
-                        "labels": {
-                            "app.kubernetes.io/name": "nosqlbench-demo",
-                            "app.kubernetes.io/instance": self.release_name,
-                            "app.kubernetes.io/component": "state"
-                        }
-                    },
-                    "data": {
-                        "state.json": state_json
+                state_copy = self._state.copy()
+                state_copy["last_updated"] = datetime.now().isoformat()
+
+            state_json = json.dumps(state_copy, indent=2)
+
+            configmap_body = {
+                "apiVersion": "v1",
+                "kind": "ConfigMap",
+                "metadata": {
+                    "name": self.state_configmap_name,
+                    "namespace": self.namespace,
+                    "labels": {
+                        "app.kubernetes.io/name": "nosqlbench-demo",
+                        "app.kubernetes.io/instance": self.release_name,
+                        "app.kubernetes.io/component": "state"
                     }
+                },
+                "data": {
+                    "state.json": state_json
                 }
-                
-                try:
-                    # Try to update existing ConfigMap
-                    self.core_v1.patch_namespaced_config_map(
-                        name=self.state_configmap_name,
+            }
+
+            try:
+                # Try to update existing ConfigMap
+                self.core_v1.patch_namespaced_config_map(
+                    name=self.state_configmap_name,
+                    namespace=self.namespace,
+                    body=configmap_body
+                )
+            except ApiException as e:
+                if e.status == 404:
+                    # ConfigMap doesn't exist, create it
+                    self.core_v1.create_namespaced_config_map(
                         namespace=self.namespace,
                         body=configmap_body
                     )
-                except ApiException as e:
-                    if e.status == 404:
-                        # ConfigMap doesn't exist, create it
-                        self.core_v1.create_namespaced_config_map(
-                            namespace=self.namespace,
-                            body=configmap_body
-                        )
-                    else:
-                        raise
-                
-                logger.debug(f"Saved state to ConfigMap {self.state_configmap_name}")
-                
+                else:
+                    raise
+
+            logger.debug(f"Saved state to ConfigMap {self.state_configmap_name}")
+
         except Exception as e:
             logger.error(f"Failed to save state to ConfigMap: {e}")
     
@@ -135,31 +138,35 @@ class KubernetesStateManager:
     def add_database(self, database_config: Dict[str, Any]) -> Dict[str, Any]:
         """Add a new database configuration"""
         try:
+            # Generate unique ID for the database
+            import uuid
+            db_id = str(uuid.uuid4())
+
+            # Add timestamp
+            database_config['added_at'] = datetime.now().isoformat()
+            database_config['id'] = db_id
+
             with self.lock:
-                # Generate unique ID for the database
-                import uuid
-                db_id = str(uuid.uuid4())
-
-                # Add timestamp
-                database_config['added_at'] = datetime.now().isoformat()
-                database_config['id'] = db_id
-
                 # Store in state
                 if "configured_databases" not in self._state:
                     self._state["configured_databases"] = {}
 
                 self._state["configured_databases"][db_id] = database_config
 
-                # Save state
+            # Save state outside of lock to avoid blocking
+            try:
                 self.save_state()
+            except Exception as save_error:
+                logger.error(f"Failed to save state after adding database: {save_error}")
+                # Don't fail the operation if save fails
 
-                logger.info(f"Added database {database_config['name']} ({database_config['type']}) with ID {db_id}")
+            logger.info(f"Added database {database_config['name']} ({database_config['type']}) with ID {db_id}")
 
-                return {
-                    "success": True,
-                    "database_id": db_id,
-                    "message": f"Database {database_config['name']} added successfully"
-                }
+            return {
+                "success": True,
+                "database_id": db_id,
+                "message": f"Database {database_config['name']} added successfully"
+            }
 
         except Exception as e:
             logger.error(f"Failed to add database: {e}")
@@ -168,6 +175,7 @@ class KubernetesStateManager:
     def remove_database(self, db_id: str) -> Dict[str, Any]:
         """Remove a database configuration"""
         try:
+            db_name = None
             with self.lock:
                 if "configured_databases" not in self._state:
                     return {"success": False, "error": "No databases configured"}
@@ -178,15 +186,18 @@ class KubernetesStateManager:
                 db_name = self._state["configured_databases"][db_id].get('name', db_id)
                 del self._state["configured_databases"][db_id]
 
-                # Save state
+            # Save state outside of lock
+            try:
                 self.save_state()
+            except Exception as save_error:
+                logger.error(f"Failed to save state after removing database: {save_error}")
 
-                logger.info(f"Removed database {db_name} with ID {db_id}")
+            logger.info(f"Removed database {db_name} with ID {db_id}")
 
-                return {
-                    "success": True,
-                    "message": f"Database {db_name} removed successfully"
-                }
+            return {
+                "success": True,
+                "message": f"Database {db_name} removed successfully"
+            }
 
         except Exception as e:
             logger.error(f"Failed to remove database: {e}")
@@ -195,6 +206,7 @@ class KubernetesStateManager:
     def update_database_verification(self, db_id: str, verified: bool) -> Dict[str, Any]:
         """Update database verification status"""
         try:
+            # Update state within lock
             with self.lock:
                 if "configured_databases" not in self._state:
                     return {"success": False, "error": "No databases configured"}
@@ -205,10 +217,14 @@ class KubernetesStateManager:
                 self._state["configured_databases"][db_id]["verified"] = verified
                 self._state["configured_databases"][db_id]["verified_at"] = datetime.now().isoformat()
 
-                # Save state
+            # Save state outside of lock to avoid blocking
+            try:
                 self.save_state()
+            except Exception as save_error:
+                logger.error(f"Failed to save state after updating verification: {save_error}")
+                # Don't fail the operation if save fails
 
-                return {"success": True}
+            return {"success": True}
 
         except Exception as e:
             logger.error(f"Failed to update database verification: {e}")
@@ -240,16 +256,31 @@ class KubernetesStateManager:
 
             job_info['start_time'] = datetime.now().isoformat()
             self._state["running_jobs"][job_id] = job_info
+
+        # Save state outside of lock
+        try:
             self.save_state()
-            logger.info(f"Added running job: {job_id}")
+        except Exception as save_error:
+            logger.error(f"Failed to save state after adding job: {save_error}")
+
+        logger.info(f"Added running job: {job_id}")
 
     def remove_running_job(self, job_id: str):
         """Remove a running job"""
+        removed = False
         with self.lock:
             if job_id in self._state.get("running_jobs", {}):
                 del self._state["running_jobs"][job_id]
+                removed = True
+
+        if removed:
+            # Save state outside of lock
+            try:
                 self.save_state()
-                logger.info(f"Removed running job: {job_id}")
+            except Exception as save_error:
+                logger.error(f"Failed to save state after removing job: {save_error}")
+
+            logger.info(f"Removed running job: {job_id}")
 
     def get_running_jobs(self) -> Dict[str, Any]:
         """Get all running jobs"""

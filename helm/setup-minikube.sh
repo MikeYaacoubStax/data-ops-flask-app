@@ -3,6 +3,12 @@ set -e
 
 # NoSQLBench Kubernetes Demo - Minikube Setup Script
 # This script sets up the complete environment for testing on minikube
+#
+# Features:
+# - Fast database connectivity checks (direct socket connections)
+# - Real-time UI updates without page refreshes
+# - Interactive benchmark controls with progress indicators
+# - Automatic workload setup and management
 
 echo "🚀 NoSQLBench Kubernetes Demo - Minikube Setup"
 echo "=============================================="
@@ -106,6 +112,8 @@ build_image() {
     # Verify image was built
     if docker images | grep -q "${IMAGE_NAME}"; then
         print_success "Docker image built successfully"
+        # Show image details
+        docker images | grep "${IMAGE_NAME}" | head -1
     else
         print_error "Failed to build Docker image"
         exit 1
@@ -146,10 +154,30 @@ deploy_helm() {
 # Wait for deployment
 wait_for_deployment() {
     print_status "Waiting for deployment to be ready..."
-    
+
     # Wait for deployment to be ready
     kubectl wait --for=condition=available --timeout=300s deployment/${RELEASE_NAME}
-    
+
+    # Verify health endpoints are responding
+    print_status "Verifying application health..."
+    local max_attempts=30
+    local attempt=1
+
+    while [ $attempt -le $max_attempts ]; do
+        if kubectl exec deployment/${RELEASE_NAME} -- curl -f http://localhost:5000/api/health > /dev/null 2>&1; then
+            print_success "Application health check passed"
+            break
+        fi
+
+        if [ $attempt -eq $max_attempts ]; then
+            print_warning "Health check timeout, but deployment is running"
+            break
+        fi
+
+        sleep 2
+        ((attempt++))
+    done
+
     print_success "Deployment is ready"
 }
 
@@ -166,13 +194,24 @@ get_access_info() {
     echo "====================="
     echo "Web Interface: ${SERVICE_URL}"
     echo ""
-    echo "📊 Database Endpoints:"
-    echo "Cassandra: 3.91.36.147:9042"
-    echo "OpenSearch: 3.91.36.147:9200"
-    echo "Presto: 3.91.36.147:8080"
+    echo "📊 Next Steps - Configure Database Endpoints:"
+    echo "1. Open the web interface above"
+    echo "2. Go to 'Database Configuration' section"
+    echo "3. Add your database endpoints (examples below):"
+    echo "   • Cassandra: 3.91.36.147:9042"
+    echo "   • OpenSearch: 3.91.36.147:9200"
+    echo "   • Presto: 3.91.36.147:8080"
+    echo "4. Test connectivity and run workloads"
     echo ""
     echo "📈 Metrics Endpoint:"
     echo "VictoriaMetrics: http://host.minikube.internal:8428"
+    echo ""
+    echo "✨ Features:"
+    echo "• Dynamic database configuration through web UI"
+    echo "• Fast database connectivity checks (direct socket connections)"
+    echo "• Real-time UI updates without page refreshes"
+    echo "• Interactive benchmark controls with progress indicators"
+    echo "• Automatic workload setup and management"
     echo ""
     echo "🔧 Useful Commands:"
     echo "kubectl get pods                    # View pods"

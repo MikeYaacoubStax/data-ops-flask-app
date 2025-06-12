@@ -32,8 +32,9 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 
-# Initialize SocketIO
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+# Initialize SocketIO with better connection stability
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet',
+                   ping_timeout=60, ping_interval=25)
 
 # Initialize managers
 config_manager = ConfigManager()
@@ -54,20 +55,27 @@ def start_status_monitor():
 
 def status_monitor_loop():
     """Background loop for monitoring job status and emitting updates"""
+    last_status = None
+    # Get status update interval from environment (default 5 seconds)
+    update_interval = int(os.getenv('STATUS_UPDATE_INTERVAL', '5'))
+
     while not shutdown_event.is_set():
         try:
             # Get current status
             status = get_application_status()
-            
-            # Emit status update via WebSocket
-            socketio.emit('status_update', status)
-            
-            # Sleep for 2 seconds
-            time.sleep(2)
-            
+
+            # Only emit if status actually changed (reduce unnecessary updates)
+            if status != last_status:
+                socketio.emit('status_update', status)
+                last_status = status.copy() if isinstance(status, dict) else status
+                logger.debug("Status update emitted")
+
+            # Sleep for configurable interval for better connection stability
+            time.sleep(update_interval)
+
         except Exception as e:
             logger.error(f"Error in status monitor: {e}")
-            time.sleep(5)
+            time.sleep(update_interval * 2)
 
 def get_application_status():
     """Get comprehensive application status"""
@@ -116,8 +124,8 @@ def health():
 def ready():
     """Readiness check endpoint"""
     try:
-        # Check if we can connect to Kubernetes API
-        job_manager.list_jobs()
+        # Simple readiness check - just verify the app is running
+        # Don't make external API calls that might timeout
         return jsonify({"status": "ready", "timestamp": time.time()})
     except Exception as e:
         logger.error(f"Readiness check failed: {e}")
@@ -146,17 +154,25 @@ def get_databases():
 @app.route('/api/databases/add', methods=['POST'])
 def add_database():
     """Add a new database endpoint"""
+    logger.info("Received add database request")
     try:
+        logger.info("Getting JSON data from request")
         data = request.get_json()
+        logger.info(f"Received data: {data}")
+
         db_type = data.get('type')  # cassandra, opensearch, presto
         host = data.get('host')
         port = data.get('port')
         name = data.get('name')  # user-defined name for this database
 
+        logger.info(f"Parsed fields: type={db_type}, host={host}, port={port}, name={name}")
+
         if not all([db_type, host, port, name]):
+            logger.warning("Missing required fields")
             return jsonify({"success": False, "error": "Missing required fields: type, host, port, name"}), 400
 
         if db_type not in ['cassandra', 'opensearch', 'presto']:
+            logger.warning(f"Invalid database type: {db_type}")
             return jsonify({"success": False, "error": "Invalid database type. Must be: cassandra, opensearch, or presto"}), 400
 
         # Add optional authentication fields
@@ -173,7 +189,10 @@ def add_database():
             'verified': False  # Will be set to True after connectivity test
         }
 
+        logger.info(f"Calling state_manager.add_database with config: {database_config}")
         result = state_manager.add_database(database_config)
+        logger.info(f"Got result from state_manager: {result}")
+
         return jsonify(result)
 
     except Exception as e:
@@ -184,13 +203,18 @@ def add_database():
 def test_database_connectivity():
     """Test database connectivity"""
     try:
+        logger.info("Received database connectivity test request")
         data = request.get_json()
         db_id = data.get('db_id')
+        logger.info(f"Testing connectivity for database ID: {db_id}")
 
         if not db_id:
             return jsonify({"success": False, "error": "Database ID required"}), 400
 
+        # Run connectivity test with timeout protection
+        logger.info("Starting connectivity test...")
         result = job_manager.test_database_connectivity(db_id)
+        logger.info(f"Connectivity test completed with result: {result}")
         return jsonify(result)
 
     except Exception as e:

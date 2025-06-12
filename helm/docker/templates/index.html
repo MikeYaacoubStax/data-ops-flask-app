@@ -326,16 +326,7 @@
             font-size: 0.9rem;
             color: #666;
         }
-        .job-runtime {
-            font-family: 'Roboto Mono', monospace;
-            color: #4caf50;
-            font-weight: 500;
-            font-size: 0.9rem;
-            background: rgba(76, 175, 80, 0.1);
-            padding: 4px 8px;
-            border-radius: 6px;
-            margin-left: 12px;
-        }
+
     </style>
 </head>
 <body>
@@ -394,9 +385,14 @@
     <!-- Socket.IO and JavaScript -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script>
-        // Initialize Socket.IO connection
-        const socket = io();
-        
+        // Initialize Socket.IO connection with better stability
+        const socket = io({
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionAttempts: 5,
+            timeout: 20000
+        });
+
         // Application state
         let appState = {
             kubernetes: { ready: false },
@@ -405,19 +401,74 @@
             jobs: { running: {} }
         };
 
-        // Socket event handlers
+        let formStatePreserved = {};
+        let isReconnecting = false;
+
+        // Preserve form state before updates
+        function preserveFormState() {
+            const forms = document.querySelectorAll('input, select, textarea');
+            forms.forEach(element => {
+                if (element.id && element.value) {
+                    formStatePreserved[element.id] = element.value;
+                }
+            });
+        }
+
+        // Restore form state after updates
+        function restoreFormState() {
+            Object.keys(formStatePreserved).forEach(id => {
+                const element = document.getElementById(id);
+                if (element && !element.disabled) {
+                    element.value = formStatePreserved[id];
+                }
+            });
+        }
+
+        // Check if user is currently typing
+        function isUserTyping() {
+            const activeElement = document.activeElement;
+            return activeElement && (
+                activeElement.tagName === 'INPUT' ||
+                activeElement.tagName === 'TEXTAREA' ||
+                activeElement.tagName === 'SELECT'
+            );
+        }
+
+        // Socket event handlers with improved stability
         socket.on('connect', function() {
             console.log('Connected to server');
+
+            if (isReconnecting) {
+                console.log('Reconnected - requesting status update');
+                loadStatus();
+                isReconnecting = false;
+            }
         });
 
         socket.on('status_update', function(status) {
             console.log('Status update received:', status);
-            appState = status;
-            updateUI();
+
+            // Only update if user is not typing
+            if (!isUserTyping()) {
+                preserveFormState();
+                appState = status;
+                updateUI();
+                restoreFormState();
+            }
         });
 
         socket.on('disconnect', function() {
             console.log('Disconnected from server');
+            preserveFormState();
+            isReconnecting = true;
+        });
+
+        socket.on('reconnect_attempt', function() {
+            console.log('Attempting to reconnect...');
+        });
+
+        socket.on('reconnect_failed', function() {
+            console.log('Reconnection failed');
         });
 
         // Update UI based on current state
@@ -631,7 +682,6 @@
 
             let html = '';
             Object.entries(jobs).forEach(([jobId, job]) => {
-                const runtime = job.runtime ? formatRuntime(job.runtime) : 'Starting...';
                 html += `
                     <div class="job-item">
                         <div class="job-info">
@@ -642,8 +692,7 @@
                             </div>
                         </div>
                         <div style="display: flex; align-items: center;">
-                            <div class="job-runtime">${runtime}</div>
-                            <button class="btn btn-danger btn-small" onclick="stopJob('${jobId}')" style="margin-left: 12px;">
+                            <button class="btn btn-danger btn-small" onclick="stopJob('${jobId}')">
                                 <i class="material-icons">stop</i>
                                 Stop
                             </button>
@@ -821,19 +870,6 @@
         }
 
         // Utility functions
-        function formatRuntime(seconds) {
-            const hours = Math.floor(seconds / 3600);
-            const minutes = Math.floor((seconds % 3600) / 60);
-            const secs = Math.floor(seconds % 60);
-
-            if (hours > 0) {
-                return `${hours}h ${minutes}m ${secs}s`;
-            } else if (minutes > 0) {
-                return `${minutes}m ${secs}s`;
-            } else {
-                return `${secs}s`;
-            }
-        }
 
         function showAlert(message, type = 'info') {
             const alert = document.createElement('div');
